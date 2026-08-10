@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-08-10
+
+### Added
+
+- **Sandbox exposes `setImmediate` / `clearImmediate`** — previously the runtime-env prose recommended `await new Promise(r => setImmediate(r))` for yielding between chunks, but the sandbox never provided it, so any snippet following that advice threw `setImmediate is not defined`.
+- **Mermaid guidance for diagrams** — `assets/prose/runtime-env.md` and `assets/prose/examples.md` now tell agents to return `` ```mermaid `` fenced blocks for dependency graphs, call graphs, class hierarchies, flowcharts, sequence and state diagrams. VS Code Markdown preview, Copilot Chat, and GitHub-flavored Markdown all render Mermaid natively — no image generation, no attachments.
+
+### Fixed
+
+- **`@implant` no longer emits nested code fences.** Hardened the chat participant's system preamble, added a few-shot User/Assistant demonstration turn showing correctly-formatted replies, and added defensive fence-stripping in two places: `stripCodeFence` on the executed source, and a leading-fence check in `streamLmResponse` that skips the display wrapper when the model produced its own fence. Together these keep execution correct even when the model ignores the instruction, and keep the rendered chat block from breaking.
+
+### Changed
+
+- `.DS_Store` added to `.gitignore`.
+
 ## [0.2.0] — 2026-08-10
 
 ### Added
