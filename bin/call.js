@@ -75,8 +75,10 @@ async function handleLine(line) {
 	catch (e) { process.stdout.write(errorReply(null, -32700, `Parse error: ${e.message}`) + "\n"); return; }
 
 	let res = await post(msg);
-	if (res.status === 401) {
-		// Session likely rotated on window reload — re-read and retry once.
+	// Session rotation on VS Code reload changes both the port and the secret.
+	// Reload session.yml and retry once on either 401 (wrong secret) or transport failure
+	// (server not at the old port anymore).
+	if (res.status === 401 || res.status === 0) {
 		session = loadSession();
 		sessionId = undefined;
 		res = await post(msg);

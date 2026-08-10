@@ -1,4 +1,30 @@
-The snippet is executed as the body of an `async` function inside the extension host.
+The snippet is executed inside the VS Code extension host, wrapped like this:
+
+```js
+(async function __implant__() {
+  <YOUR CODE HERE>
+})()
+```
+
+Write ONLY the body. Use `return` to send the answer back.
+
+❌ Wrong — defines a function that never runs, returns nothing:
+
+```js
+async function findRefs() {
+  const ed = vscode.window.activeTextEditor;
+  return await vscode.commands.executeCommand("vscode.executeReferenceProvider", ed.document.uri, ed.selection.active);
+}
+```
+
+✅ Right — statements at top level, uses `return`:
+
+```js
+// Find all references to the symbol under the cursor.
+const ed = vscode.window.activeTextEditor;
+return await vscode.commands.executeCommand("vscode.executeReferenceProvider", ed.document.uri, ed.selection.active);
+```
+
 The following are in scope: `vscode`, `console`, `require`, `Buffer`, `process`, `setTimeout`,
 `clearTimeout`, `setInterval`, `clearInterval`, `queueMicrotask`, `URL`, `URLSearchParams`,
 `TextEncoder`, `TextDecoder`.
@@ -8,6 +34,18 @@ VS Code types (`Uri`, `Range`, `Position`, `Location`, `Selection`) are unwrappe
 plain objects; arrays are capped at 500 entries; strings at 20 000 characters. If you
 expect a large result, do the filtering / aggregation *inside* the snippet and return only
 what you actually need.
+
+**Output shape — Markdown by default, JSON only when a program will parse it.**
+
+- If the result will be shown to a human (user asked in chat, or you as the agent will
+  paste it into a reply): return a **Markdown string**. Use headings, bullet lists, code
+  fences for code, and `[label](vscode://file//abs/path?line)` links for clickable file
+  references. VS Code and most chat surfaces render this beautifully.
+- If the result will be consumed by another program (another agent, a follow-up snippet):
+  return **plain JSON** — object / array / number / string. The MCP envelope preserves the
+  shape; the caller can `JSON.parse` cleanly.
+- When in doubt, prefer Markdown — it reads well raw and renders when displayed.
+- Ask the caller explicitly what form they want if it matters.
 
 `console.log/warn/error` output is captured and returned alongside the value, so it's safe
 to use for debug output without contaminating the return value.

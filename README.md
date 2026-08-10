@@ -32,6 +32,28 @@ snippet inside the running VS Code extension host with full access to the
    script with syntax highlighting. Click **Run**, **Run + trust session**, or
    **Deny**.
 
+You can also ask Implant directly in Copilot Chat via **`@implant`** — see below.
+
+## `@implant` in Copilot Chat
+
+Type `@implant …` in Copilot Chat with a natural-language request. Implant asks
+the language model to translate your ask into a `vscode.*` snippet, shows you
+the snippet, runs it through the same approval flow as any other invocation,
+and streams the result back into the chat.
+
+Examples of things that aren't one-click in the UI:
+
+- `@implant list every TODO / FIXME / HACK comment across the workspace, grouped by tag, with clickable file:line links.`
+- `@implant which exported symbols in src/ have zero references? Those are dead-code candidates.`
+- `@implant sort my open tabs by diagnostic count so I know which file to fix first.`
+- `@implant give me a bug-report snapshot: VS Code version, active user extensions, open tabs, dirty files, and per-language diagnostic count. Format it as GitHub-ready Markdown.`
+- `@implant list the top 20 functions in this workspace by cross-file reference count.`
+- `@implant preview what a project-wide rename of \`foo\` → \`bar\` would touch — file count and line count per file, no changes applied.`
+
+Requires GitHub Copilot for the language model. Read-only queries and refactor
+dry-runs are the sweet spot; anything that modifies files still opens the
+approval webview so you can eyeball the exact snippet before it runs.
+
 ## Palette commands
 
 | Command | Purpose |

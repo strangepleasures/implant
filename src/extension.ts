@@ -5,6 +5,7 @@ import * as crypto from 'crypto';
 import { startServer, StartedServer, UnauthorizedAttempt } from './mcp-http-server';
 import { askApproval } from './approval';
 import { execute, ExecResult } from './executor';
+import { registerChatParticipant } from './chat-participant';
 import {
 	skillMarkdown,
 	cursorRules,
@@ -88,6 +89,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 
 	registerMcpProvider(context, started.url, output);
+	registerChatParticipant(context, output, (code, options) => runScript(code, output, cfg, options));
 }
 
 export function deactivate() {
@@ -336,19 +338,28 @@ async function runScript(
 	code: string,
 	output: vscode.OutputChannel,
 	cfg: () => vscode.WorkspaceConfiguration,
+	options: { skipApproval?: boolean; signal?: AbortSignal } = {},
 ): Promise<ExecResult> {
 	const started = Date.now();
-	const approved = await confirmExecution(code, output);
-	if (!approved) {
-		return {
-			ok: false,
-			error: { name: 'Error', message: 'User declined to run the script.' },
-			logs: [],
-			durationMs: Date.now() - started,
-		};
+	if (!options.skipApproval) {
+		const approved = await confirmExecution(code, output);
+		if (!approved) {
+			return {
+				ok: false,
+				error: { name: 'Error', message: 'User declined to run the script.' },
+				logs: [],
+				durationMs: Date.now() - started,
+			};
+		}
 	}
 	const timeoutMs = cfg().get<number>('timeoutMs', 0);
 	const controller = new AbortController();
+	// Forward an externally-supplied signal (e.g. the chat request's cancellation token)
+	// so the caller can abort the running snippet.
+	if (options.signal) {
+		if (options.signal.aborted) controller.abort();
+		else options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+	}
 	const runPromise = execute(code, timeoutMs, controller.signal);
 	watchForSlowScript(runPromise, controller);
 	return runPromise;

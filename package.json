@@ -18,7 +18,7 @@
   },
   "homepage": "https://github.com/strangepleasures/implant#readme",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.95.0"
   },
   "categories": [
     "AI",
@@ -75,6 +75,15 @@
         "command": "implant.copyAgentInstructions",
         "title": "Implant: Copy Agent Instructions"
       }
+    ],
+    "chatParticipants": [
+      {
+        "id": "implant.assistant",
+        "name": "implant",
+        "fullName": "Implant",
+        "description": "Ask in English, get answers or edits by running vscode.* calls in the extension host.",
+        "isSticky": true
+      }
     ]
   },
   "scripts": {
@@ -83,7 +92,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.95.0",
     "typescript": "^5.4.0"
   }
 }

@@ -20,6 +20,7 @@ Initial public release.
 - **CLI-agent path** — `Implant: Install into Workspace` drops a stdio↔HTTP MCP proxy at `.vscode/implant/call.js` and committed MCP configs (`.mcp.json` for Claude Code and generic clients, `.cursor/mcp.json` for Cursor with `type: "stdio"`), so Claude Code / Aider / Cline / Cursor connect automatically.
 - **Agent-facing instructions** — the same install command writes `.claude/skills/implant/SKILL.md`, `.cursor/rules/implant.mdc`, and upserts a fenced Implant section into `.github/copilot-instructions.md`. Content is generated from a single source (`src/agent-instructions.ts`) so every surface stays in sync.
 - **Palette commands:** `Implant: Install into Workspace`, `Implant: Copy Agent Instructions`.
+- **`@implant` Copilot Chat participant** — ask in natural language, Implant asks the language model to translate the request into a `vscode.*` snippet, runs it through the same approval + slow-script pipeline, and streams the result back into the chat. Requires GitHub Copilot for the language model.
 - **Install prompt** — the first time a workspace folder without Implant setup is opened, a notification offers to install (or "Don't ask for this folder" to suppress permanently).
 - **Slow-script notification** — after 10 seconds of execution, a cancellable progress notification appears; clicking Cancel aborts the snippet.
 - **Serializer** for return values: `vscode.Uri`, `Range`, `Position`, `Location`, `Selection` unwrap to plain JSON; arrays capped at 500 items, strings at 20 000 chars, cycles and deep nesting handled.
