@@ -26,8 +26,8 @@ return await vscode.commands.executeCommand("vscode.executeReferenceProvider", e
 ```
 
 The following are in scope: `vscode`, `console`, `require`, `Buffer`, `process`, `setTimeout`,
-`clearTimeout`, `setInterval`, `clearInterval`, `queueMicrotask`, `URL`, `URLSearchParams`,
-`TextEncoder`, `TextDecoder`.
+`clearTimeout`, `setInterval`, `clearInterval`, `setImmediate`, `clearImmediate`,
+`queueMicrotask`, `URL`, `URLSearchParams`, `TextEncoder`, `TextDecoder`.
 
 Use `return` to send a value back. The value is serialized as JSON with these tweaks:
 VS Code types (`Uri`, `Range`, `Position`, `Location`, `Selection`) are unwrapped into

@@ -8,35 +8,13 @@ const CHAT_PREAMBLE = `You are Implant, an assistant that answers requests by ru
 JavaScript snippet inside the VS Code extension host and streaming the result to the user
 in Copilot Chat.
 
-# OUTPUT FORMAT — READ THIS FIRST
+# OUTPUT FORMAT
 
-Your entire response is passed verbatim to \`new Function()\` and executed. There is
-**no post-processing that will "extract the code block for you"**. Every character
-you emit must be valid JavaScript source.
-
-**Do NOT wrap your reply in a code fence.** No \`\`\`js, no \`\`\`javascript,
-no \`\`\` of any kind at the start or end. No language tag. No prose before or
-after. The chat surface wraps your output in a display fence on its own — a fence in
-your reply nests inside that and breaks both rendering AND execution.
-
-❌ WRONG (this is the mistake to avoid — every character shown is literally in the reply):
-
-    \`\`\`js
-    const files = await vscode.workspace.findFiles("**/*.ts");
-    return files.length;
-    \`\`\`
-
-✅ RIGHT — reply is only this:
-
-    const files = await vscode.workspace.findFiles("**/*.ts");
-    return files.length;
-
-The first character of your reply MUST be either \`/\` (a comment), \`c\` (from \`const\`),
-\`l\` (from \`let\`), \`r\` (from \`return\`), or \`a\` (from \`await\`) — never a backtick.
-
-If the request truly can't be answered via a vscode.* call, still reply with plain JS
-that returns an explanatory Markdown string, e.g. \`return "Sorry — this needs a shell
-command, not a vscode.* call.";\`.
+Your entire response is passed verbatim to \`new Function()\` and executed. Every character
+you emit must be valid JavaScript source. Your reply MUST begin with a \`//\` comment
+describing intent — that is the only valid first token. No preamble, no explanation, no
+code fence, no language tag, nothing before the first \`//\`. See the demonstration turn
+that follows for the exact shape.
 
 # WHAT TO RETURN FROM THE SNIPPET
 
@@ -44,7 +22,21 @@ The user reads the returned value directly in the chat, so **return a Markdown s
 use headings, bullet lists, code fences for source samples, and inline links for file
 references (e.g. \`[src/foo.ts:42](vscode://file//abs/path/src/foo.ts?42)\` — VS Code
 renders these as clickable jumps). Only return raw JSON if the user explicitly asks for
-machine-readable output.`;
+machine-readable output.
+
+If the request truly can't be answered via a vscode.* call, still reply with plain JS
+that returns an explanatory Markdown string, e.g. \`return "Sorry — this needs a shell
+command, not a vscode.* call.";\`.`;
+
+// Few-shot demonstration turn. Injected at the top of every message list, right after
+// SYSTEM_PROMPT. Concrete examples of correctly-shaped replies are far more effective at
+// enforcing format than any amount of prose — the model imitates what it sees. Keep these
+// short and canonical.
+const FEWSHOT_USER = 'count the .ts files under src/';
+const FEWSHOT_ASSISTANT =
+	`// Count TS files under src/, excluding node_modules.
+const files = await vscode.workspace.findFiles('src/**/*.ts', '**/node_modules/**');
+return files.length;`;
 
 const SYSTEM_PROMPT = [CHAT_PREAMBLE, OVERVIEW, RUNTIME_ENV, EXAMPLES, WARMUP, CAVEATS].join('\n\n');
 
@@ -145,20 +137,36 @@ async function streamLmResponse(
 	token: vscode.CancellationToken,
 ): Promise<string | undefined> {
 	let text = '';
-	// Wrap the streamed raw-JS output in a fenced block so the chat renders it with
-	// syntax highlighting. The model is instructed to emit no fences of its own.
-	stream.markdown('```js\n');
+	// The model is *told* to emit raw JS with no fence, but often ignores that and starts
+	// with ```js. Wrap only when it doesn't — otherwise the model's fence nests inside
+	// ours and both display and execution break. Decision is deferred until we've seen
+	// enough of the response to reliably tell whether it starts with a fence, then all
+	// buffered text is flushed at once.
+	let weOwnFence: boolean | undefined;
+	const decideAndFlush = () => {
+		weOwnFence = !text.trimStart().startsWith('```');
+		if (weOwnFence) stream.markdown('```js\n');
+		stream.markdown(text);
+	};
 	try {
 		const resp = await model.sendRequest(messages, {}, token);
 		for await (const chunk of resp.text) {
 			text += chunk;
-			stream.markdown(chunk);
+			if (weOwnFence === undefined) {
+				// Wait until we have "```" or "```lang" or a newline before deciding.
+				if (text.trimStart().length < 4 && !text.includes('\n')) continue;
+				decideAndFlush();
+			} else {
+				stream.markdown(chunk);
+			}
 		}
+		if (weOwnFence === undefined) decideAndFlush(); // very short response
 	} catch (err) {
-		stream.markdown('\n```\n\n_Language model request failed: ' + (err as Error).message + '_');
+		if (weOwnFence) stream.markdown('\n```');
+		stream.markdown('\n\n_Language model request failed: ' + (err as Error).message + '_');
 		return undefined;
 	}
-	stream.markdown('\n```');
+	if (weOwnFence) stream.markdown('\n```');
 	if (token.isCancellationRequested) return undefined;
 	return text;
 }
@@ -210,6 +218,8 @@ async function regenerateOnFailure(
 	const err = failed.error ?? { name: 'Error', message: 'unknown failure' };
 	const messages: vscode.LanguageModelChatMessage[] = [
 		vscode.LanguageModelChatMessage.User(SYSTEM_PROMPT),
+		vscode.LanguageModelChatMessage.User(FEWSHOT_USER),
+		vscode.LanguageModelChatMessage.Assistant(FEWSHOT_ASSISTANT),
 		vscode.LanguageModelChatMessage.User(pending.originalPrompt),
 		vscode.LanguageModelChatMessage.Assistant(pending.pendingCode),
 		vscode.LanguageModelChatMessage.User(
@@ -243,6 +253,8 @@ function stripCodeFence(text: string): string {
 function buildMessages(request: vscode.ChatRequest, chatCtx: vscode.ChatContext): vscode.LanguageModelChatMessage[] {
 	const messages: vscode.LanguageModelChatMessage[] = [
 		vscode.LanguageModelChatMessage.User(SYSTEM_PROMPT),
+		vscode.LanguageModelChatMessage.User(FEWSHOT_USER),
+		vscode.LanguageModelChatMessage.Assistant(FEWSHOT_ASSISTANT),
 	];
 	// Fold the prior turns of THIS participant into the request so multi-turn context works.
 	for (const turn of chatCtx.history) {

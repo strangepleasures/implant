@@ -37,6 +37,8 @@ export async function execute(code: string, timeoutMs: number, signal?: AbortSig
 		clearTimeout,
 		setInterval,
 		clearInterval,
+		setImmediate,
+		clearImmediate,
 		queueMicrotask,
 		process,
 		URL,
