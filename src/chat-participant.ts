@@ -8,14 +8,37 @@ const CHAT_PREAMBLE = `You are Implant, an assistant that answers requests by ru
 JavaScript snippet inside the VS Code extension host and streaming the result to the user
 in Copilot Chat.
 
-**Reply with raw JavaScript only — no fenced code blocks, no prose, no explanations
-before or after.** Your entire response is parsed as JavaScript source and executed.
-The chat surface wraps your output in a code block for display; there's no place for
-prose to go.
+# OUTPUT FORMAT — READ THIS FIRST
 
-If the request truly can't be answered via a vscode.* call, still return valid JavaScript
+Your entire response is passed verbatim to \`new Function()\` and executed. There is
+**no post-processing that will "extract the code block for you"**. Every character
+you emit must be valid JavaScript source.
+
+**Do NOT wrap your reply in a code fence.** No \`\`\`js, no \`\`\`javascript,
+no \`\`\` of any kind at the start or end. No language tag. No prose before or
+after. The chat surface wraps your output in a display fence on its own — a fence in
+your reply nests inside that and breaks both rendering AND execution.
+
+❌ WRONG (this is the mistake to avoid — every character shown is literally in the reply):
+
+    \`\`\`js
+    const files = await vscode.workspace.findFiles("**/*.ts");
+    return files.length;
+    \`\`\`
+
+✅ RIGHT — reply is only this:
+
+    const files = await vscode.workspace.findFiles("**/*.ts");
+    return files.length;
+
+The first character of your reply MUST be either \`/\` (a comment), \`c\` (from \`const\`),
+\`l\` (from \`let\`), \`r\` (from \`return\`), or \`a\` (from \`await\`) — never a backtick.
+
+If the request truly can't be answered via a vscode.* call, still reply with plain JS
 that returns an explanatory Markdown string, e.g. \`return "Sorry — this needs a shell
 command, not a vscode.* call.";\`.
+
+# WHAT TO RETURN FROM THE SNIPPET
 
 The user reads the returned value directly in the chat, so **return a Markdown string**:
 use headings, bullet lists, code fences for source samples, and inline links for file
@@ -86,7 +109,7 @@ export function registerChatParticipant(
 			const text = await streamLmResponse(model, messages, stream, token);
 			if (text === undefined) return;
 
-			const code = text.trim();
+			const code = stripCodeFence(text);
 			if (!code) {
 				stream.markdown('\n\n_Empty response from the language model._');
 				return;
@@ -197,9 +220,24 @@ async function regenerateOnFailure(
 	const text = await streamLmResponse(model, messages, stream, token);
 	if (text === undefined) return;
 
-	const newCode = text.trim();
+	const newCode = stripCodeFence(text);
 	if (!newCode) return;
 	return presentSnippet(newCode, pending.originalPrompt, pending.retryCount + 1, stream, token, run);
+}
+
+/**
+ * Belt-and-suspenders: the preamble tells the model not to wrap its reply in a code
+ * fence, but Copilot's underlying model has strong priors toward fenced code and
+ * ignores the instruction often enough to matter. Strip a leading ```lang line and
+ * a trailing ``` if present. Idempotent — plain JS passes through unchanged.
+ */
+function stripCodeFence(text: string): string {
+	let out = text.trim();
+	const opening = /^```[a-zA-Z0-9_+-]*\r?\n/;
+	const closing = /\r?\n```\s*$/;
+	if (opening.test(out)) out = out.replace(opening, '');
+	if (closing.test(out)) out = out.replace(closing, '');
+	return out.trim();
 }
 
 function buildMessages(request: vscode.ChatRequest, chatCtx: vscode.ChatContext): vscode.LanguageModelChatMessage[] {
