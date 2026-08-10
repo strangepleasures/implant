@@ -46,6 +46,12 @@ what you actually need.
   shape; the caller can `JSON.parse` cleanly.
 - When in doubt, prefer Markdown — it reads well raw and renders when displayed.
 - Ask the caller explicitly what form they want if it matters.
+- **For diagrams — dependency graphs, call graphs, class hierarchies, flowcharts,
+  sequence diagrams, state machines, git-style branch graphs — return a Mermaid
+  fenced block** (```` ```mermaid ... ``` ````). VS Code's Markdown preview, Copilot
+  Chat, and GitHub-flavored Markdown all render Mermaid natively; no image
+  generation, no attachments, no extra dependency. Do the graph-building (nodes,
+  edges, layout hints) inside the snippet and emit the final Mermaid source.
 
 `console.log/warn/error` output is captured and returned alongside the value, so it's safe
 to use for debug output without contaminating the return value.

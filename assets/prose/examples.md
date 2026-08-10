@@ -88,3 +88,39 @@ const applied = await vscode.workspace.applyEdit(edit);
 await vscode.workspace.saveAll(false);
 return { ok: applied };
 ```
+
+Draw a Mermaid dependency graph of the modules under `src/` — nodes are files,
+edges are relative imports. Two things this example gets right that a naïve version
+usually misses: (1) glob covers TS *and* JS variants, not just `.js`; (2) relative
+import specifiers don't include the file extension, so try each candidate
+(`+ '.ts'`, `+ '/index.ts'`, …) until one matches a real file:
+
+````js
+// Mermaid dep graph of TS/JS modules under src/.
+const path = require("path");
+const files = await vscode.workspace.findFiles("src/**/*.{ts,tsx,js,jsx}", "**/node_modules/**");
+const paths = new Set(files.map(f => f.fsPath));
+const CANDIDATES = ["", ".ts", ".tsx", ".js", ".jsx", "/index.ts", "/index.js"];
+
+function resolveImport(fromFile, spec) {
+  if (!spec.startsWith(".")) return null; // skip npm/bare specifiers
+  const base = path.resolve(path.dirname(fromFile), spec);
+  for (const ext of CANDIDATES) if (paths.has(base + ext)) return base + ext;
+  return null;
+}
+
+const edges = [];
+for (const f of files) {
+  const text = (await vscode.workspace.openTextDocument(f)).getText();
+  for (const m of text.matchAll(/^\s*import\s+.*?\s+from\s+['"]([^'"]+)['"]/gm)) {
+    const target = resolveImport(f.fsPath, m[1]);
+    if (target) edges.push([f.fsPath, target]);
+  }
+}
+
+const label = p => path.basename(p).replace(/\W/g, "_");
+const lines = ["```mermaid", "flowchart LR"];
+for (const [from, to] of edges) lines.push(`  ${label(from)} --> ${label(to)}`);
+lines.push("```");
+return lines.join("\n");
+````
