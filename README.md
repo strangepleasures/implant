@@ -18,7 +18,7 @@ Implant exposes a single MCP tool, `run_vscode_script`, that executes a JavaScri
 snippet inside the running VS Code extension host with full access to the
 `vscode.*` API. Nothing runs without the user approving the exact snippet.
 
-![screenshot](https://github.com/strangepleasures/implant/raw/HEAD/assets/screenshot.png)
+![screenshot](https://github.com/strangepleasures/implant/raw/HEAD/.github/screenshot.png)
 
 ## Quick start
 

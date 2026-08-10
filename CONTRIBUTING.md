@@ -40,7 +40,10 @@ assets/
                         change needed. Sections: overview, runtime-env,
                         how-to-call, examples, warmup, caveats.
   icon.png              extension icon.
-  screenshot.png        marketplace hero image, referenced from README.
+
+.github/
+  screenshot.png        marketplace / repo hero image, referenced by README's
+                        absolute URL. Excluded from the .vsix via .vscodeignore.
 
 .vscode/
   launch.json           F5 launches an Extension Development Host.
