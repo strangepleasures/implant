@@ -3,6 +3,7 @@
 .claude/**
 .cursor/**
 .github/**
+docs/**
 .mcp.json
 node_modules/**
 src/**

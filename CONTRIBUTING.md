@@ -41,8 +41,9 @@ assets/
                         how-to-call, examples, warmup, caveats.
   icon.png              extension icon.
 
-.github/
-  screenshot.png        marketplace / repo hero image, referenced by README's
+docs/
+  images/
+    screenshot.png      marketplace / repo hero image, referenced by README's
                         absolute URL. Excluded from the .vsix via .vscodeignore.
 
 .vscode/
