@@ -2,7 +2,7 @@
   "name": "implant",
   "displayName": "Implant",
   "description": "Give coding agents live access to the VS Code API — Find References, Rename, diagnostics, any extension command — through an MCP tool.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "strangepleasures",
   "author": {
     "name": "Pavel Mikhailovskii",
