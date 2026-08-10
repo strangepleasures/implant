@@ -1,0 +1,89 @@
+{
+  "name": "implant",
+  "displayName": "Implant",
+  "description": "Give coding agents live access to the VS Code API — Find References, Rename, diagnostics, any extension command — through an MCP tool.",
+  "version": "0.1.0",
+  "publisher": "strangepleasures",
+  "author": {
+    "name": "Pavel Mikhailovskii",
+    "email": "pavel.mikhailovskii@gmail.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/strangepleasures/implant.git"
+  },
+  "bugs": {
+    "url": "https://github.com/strangepleasures/implant/issues"
+  },
+  "homepage": "https://github.com/strangepleasures/implant#readme",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "keywords": [
+    "mcp",
+    "ai",
+    "agent",
+    "coding-agent",
+    "copilot",
+    "claude",
+    "claude-code",
+    "cursor",
+    "llm",
+    "automation",
+    "language-server",
+    "refactor",
+    "search",
+    "vscode-api"
+  ],
+  "icon": "assets/icon.png",
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "Implant",
+      "properties": {
+        "implant.requireConfirmation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the approval webview before running each script."
+        },
+        "implant.timeoutMs": {
+          "type": "number",
+          "default": 0,
+          "description": "Hard execution timeout per script, in milliseconds. 0 disables the timeout — the user cancels long-running scripts through the notification that appears after 10 seconds. Set to a positive number to also enforce an automatic upper bound."
+        },
+        "implant.port": {
+          "type": "number",
+          "default": 0,
+          "description": "Port for the local MCP HTTP server. 0 picks an ephemeral port; the actual port and per-session bearer token are written to .vscode/implant/session.yml in every open workspace folder."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "implant.installIntoWorkspace",
+        "title": "Implant: Install into Workspace"
+      },
+      {
+        "command": "implant.copyAgentInstructions",
+        "title": "Implant: Copy Agent Instructions"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -w -p ."
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}

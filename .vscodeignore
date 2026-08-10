@@ -1,0 +1,13 @@
+.vscode/**
+.vscode-test/**
+.claude/**
+.cursor/**
+.github/**
+.mcp.json
+node_modules/**
+src/**
+.gitignore
+tsconfig.json
+CONTRIBUTING.md
+**/*.map
+**/*.ts

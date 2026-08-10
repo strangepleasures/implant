@@ -1,0 +1,12 @@
+node_modules/
+out/
+*.vsix
+.vscode-test/
+.claude/settings.local.json
+.claude/skills/implant/
+.cursor/rules/implant.mdc
+.cursor/mcp.json
+.github/copilot-instructions.md
+.vscode/implant/call.js
+.vscode/implant/session.yml
+.mcp.json
