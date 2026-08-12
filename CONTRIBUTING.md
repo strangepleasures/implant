@@ -10,20 +10,33 @@ src/
   extension.ts          activation, palette commands, install-into-workspace,
                         install-prompt for new folders, per-workspace session
                         file (port + secret), unauthorized-request notifications,
-                        run pipeline (approval + execute + slow-script watch).
+                        run pipeline (approval + execute + slow-script watch),
+                        terminate_scripts abort registry.
   mcp-http-server.ts    minimal streamable-HTTP MCP server: initialize / tools/list /
-                        tools/call. Owns the endpoint and the bearer-token check,
-                        but delegates actual script execution to extension.ts.
+                        tools/call. Exposes run_vscode_script and
+                        terminate_scripts. Owns the endpoint and the bearer-token
+                        check, delegates execution + abort to extension.ts.
   approval.ts           webview panel that shows the incoming snippet and gathers
                         Run / Trust / Deny.
-  executor.ts           vm.Script sandbox with vscode/console/require injected,
-                        AbortSignal cancellation, optional hard timeout.
+  executor.ts           vm.Script sandbox with vscode/astGrep/activateLanguage/
+                        console/require injected, AbortSignal cancellation,
+                        optional hard timeout. Registers dynamic ast-grep
+                        languages (Python/Go/Rust/Java/C/C++) at module load.
+  sandbox-helpers.ts    activateLanguage(langId, timeoutMs?) — kicks
+                        onLanguage:<id> activation events and polls
+                        executeDocumentSymbolProvider until it responds. Exposed
+                        as a sandbox global.
   serialize.ts          walker that turns vscode.* types (Uri, Range, Position,
                         Location, Selection) into plain JSON, with cycle/depth/
                         array/string caps.
-  agent-instructions.ts loads the prose sections from assets/prose/ at module
-                        load and composes the MCP tool description AND the
-                        Claude/Cursor/Copilot/clipboard variants from them.
+  agent-instructions.ts loads the SKILL.md + references/ subtree from
+                        assets/skills/implant/ at module load and exposes them
+                        to chat-participant.ts and the install-into-workspace
+                        command.
+  chat-participant.ts   @implant Copilot Chat participant. Feeds SKILL.md as the
+                        system prompt, gates load_implant_reference, and
+                        executes the returned snippet through the same executor
+                        the MCP tool uses.
 
 bin/
   call.js               stdio↔HTTP MCP proxy. Copied into
@@ -35,20 +48,33 @@ assets/
   approval.html         template for the approval webview.
   highlight/            highlight.js common bundle + a thin CSS that maps
                         .hljs-* classes to VS Code CSS variables.
-  prose/                agent-facing markdown loaded by agent-instructions.ts.
-                        Edit these files to change what agents see; no code
-                        change needed. Sections: overview, runtime-env,
-                        how-to-call, examples, warmup, caveats.
+  skills/implant/       agent-facing skill payload. SKILL.md is the primer
+                        loaded by every surface (MCP tool description, chat
+                        system prompt, on-disk skill copy); references/ holds
+                        runnable snippets (examples/*.js) and topical prose
+                        (topics/*.md, plus the bundled vscode/ast-grep type
+                        references) served on demand via
+                        load_implant_reference.
   icon.png              extension icon.
+
+scripts/
+  package.mjs           builds one universal .vsix that carries every
+                        @ast-grep/napi platform binary. `npm run package`.
+  refresh-types.mjs     regenerates the vendored vscode/ast-grep type
+                        references shipped under assets/skills/implant/references.
+
+test/
+  run-examples.ts       end-to-end runner: copies test/fixtures/test-projects/*
+                        into a temp dir, launches VS Code with an isolated
+                        --user-data-dir, executes each examples/*.js against
+                        it, and exact-matches the return value against
+                        test/expected/<name>.{md,json}. Missing expected file
+                        → skipped.
 
 docs/
   images/
     screenshot.png      marketplace / repo hero image, referenced by README's
                         absolute URL. Excluded from the .vsix via .vscodeignore.
-
-.vscode/
-  launch.json           F5 launches an Extension Development Host.
-  tasks.json            npm: compile task (pre-launch build).
 
 LICENSE                 MIT.
 ```
@@ -58,15 +84,43 @@ LICENSE                 MIT.
 ```bash
 npm install
 npm run compile           # tsc -> out/
+npm test                  # runs test/run-examples.ts against a fixture workspace
 # F5 in VS Code to launch an Extension Development Host
 ```
 
 ## Package a .vsix
 
+For local install (uses whatever `@ast-grep/napi` binary `npm install` fetched for your
+current OS/arch):
+
 ```bash
 npx @vscode/vsce package
 code --install-extension implant-<version>.vsix --force
 ```
+
+### Publishing to the marketplace
+
+`@ast-grep/napi` ships one ~7 MB native binary per platform. A plain `vsce package`
+from the working tree only picks up the host platform's binary, so the resulting vsix
+wouldn't run for anyone else. To ship one universal vsix that works everywhere:
+
+```bash
+npm run package
+```
+
+`scripts/package.mjs` compiles once, force-installs every `@ast-grep/napi-<platform>`
+sub-package via `npm install --no-save --os=X --cpu=Y --libc=Z`, packages a single
+`implant-<version>.vsix`, then restores the host-native `@ast-grep` install so the
+working tree is ready for local dev again. The universal vsix is ~15–20 MB — bigger
+than a per-platform build, but publishing is a single command:
+
+```bash
+npx @vscode/vsce publish --packagePath implant-<version>.vsix
+```
+
+Platforms bundled: `darwin-arm64`, `darwin-x64`, `linux-{arm64,x64}-{gnu,musl}`,
+`win32-{arm64,x64}-msvc`. 32-bit Windows is intentionally excluded — VS Code dropped
+`ia32` support in 1.35 (2019).
 
 ## How the pieces fit together
 
@@ -99,15 +153,17 @@ hop at the front: they launch `bin/call.js` as a stdio subprocess (from the
 workspace `.mcp.json`), and it reads `.vscode/implant/session.yml` to attach
 the bearer token before forwarding the JSON-RPC message over HTTP.
 
-## Agent-facing prose
+## Agent-facing skill
 
-The prose lives in `assets/prose/*.md`, one file per section (`overview`,
-`runtime-env`, `how-to-call`, `examples`, `warmup`, `caveats`). `agent-instructions.ts`
-loads them at module load and composes the MCP tool description, Claude skill,
-Cursor rules, Copilot fenced block, and clipboard snippet from them. Change
-wording in the `.md` and every surface picks it up on next activation — no code
-change needed, no rebuild for content-only edits (though the `.md` files must
-be present in the .vsix, so a repackage is still needed to ship).
+The agent-facing payload lives under `assets/skills/implant/`. `SKILL.md` is the
+primer — the same body is served as the MCP tool description, the on-disk skill
+file written by "Install into Workspace", and the `@implant` chat participant's
+system prompt. `references/` holds runnable JS snippets under `examples/` and
+prose under `topics/` (plus the bundled vscode/ast-grep type declarations),
+served on demand via the `load_implant_reference` tool. Edit any of these files
+and every surface picks up the change on next activation — no code change, but a
+rebuild + reinstall is still needed to ship the updated `.md`/`.js` inside the
+.vsix. See the memory note "Ship VSIX after coding task" for the packaging step.
 
 ## Things worth knowing before changing behavior
 

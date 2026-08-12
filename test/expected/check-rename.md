@@ -1,0 +1,1 @@
+**Renamable** — placeholder `greet` (6:5–10).

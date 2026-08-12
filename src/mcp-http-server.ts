@@ -17,9 +17,18 @@ const TOOLS = [
 					type: 'string',
 					description: 'JavaScript source, executed as the body of an async function. Example: `const ed = vscode.window.activeTextEditor; return await vscode.commands.executeCommand("vscode.executeReferenceProvider", ed.document.uri, ed.selection.active);`',
 				},
+				timeoutMs: {
+					type: 'number',
+					description: 'Per-call hard timeout in milliseconds. Overrides the `implant.timeoutMs` setting for this call only. 0 disables the timeout. Handy when a call is expected to be slow (e.g. warming a language server) or when you want to abort a hang without relying on the setting.',
+				},
 			},
 			required: ['code'],
 		},
+	},
+	{
+		name: 'terminate_scripts',
+		description: 'Abort every currently-running Implant script in this window. Use when a previous run_vscode_script call is hanging (e.g. blocked on a save handler) and you need to unstick the extension host before firing another call. Returns the count of scripts that were signalled.',
+		inputSchema: { type: 'object', properties: {}, additionalProperties: false },
 	},
 ];
 
@@ -33,7 +42,8 @@ export interface ServerOptions {
 	port: number;
 	secret: string;
 	serverVersion: string;
-	runScript: (code: string) => Promise<ExecResult>;
+	runScript: (code: string, timeoutMs?: number) => Promise<ExecResult>;
+	terminateAll: () => number;
 	onUnauthorized?: (attempt: UnauthorizedAttempt) => void;
 }
 
@@ -163,11 +173,19 @@ async function handle(
 		case 'tools/call': {
 			const name = msg.params?.name;
 			const args = msg.params?.arguments ?? {};
+			if (name === 'terminate_scripts') {
+				const count = ctx.opts.terminateAll();
+				return reply({
+					isError: false,
+					content: [{ type: 'text', text: JSON.stringify({ aborted: count }) }],
+				});
+			}
 			if (name !== 'run_vscode_script') return fail(-32601, `Unknown tool: ${name}`);
 			const code = typeof args.code === 'string' ? args.code : '';
 			if (!code) return reply(toolError('Missing "code" argument.'));
+			const timeoutMs = typeof args.timeoutMs === 'number' && args.timeoutMs >= 0 ? args.timeoutMs : undefined;
 
-			const result = await ctx.opts.runScript(code);
+			const result = await ctx.opts.runScript(code, timeoutMs);
 			return reply(toToolContent(result));
 		}
 

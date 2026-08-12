@@ -1,0 +1,32 @@
+{
+  "file": "styles.css",
+  "colors": [
+    {
+      "line": 2,
+      "startChar": 13,
+      "endChar": 20,
+      "r": 1,
+      "g": 0,
+      "b": 0.5019607843137255,
+      "a": 1
+    },
+    {
+      "line": 3,
+      "startChar": 15,
+      "endChar": 31,
+      "r": 0,
+      "g": 0.5019607843137255,
+      "b": 1,
+      "a": 1
+    },
+    {
+      "line": 8,
+      "startChar": 14,
+      "endChar": 19,
+      "r": 1,
+      "g": 1,
+      "b": 1,
+      "a": 1
+    }
+  ]
+}

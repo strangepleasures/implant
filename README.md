@@ -1,8 +1,12 @@
 # Implant
 
-Give coding agents (Copilot Chat, Claude Code, Cursor, anything that speaks MCP —
-or anything that can shell out) live access to everything that lives inside VS Code
-and third-party extensions.
+Implant lets AI coding assistants read and edit your code with the same intelligence
+your editor already has — every language server, every extension command, plus
+ast-grep for cross-language structural search and rewrites.
+
+Under the hood, agents send short JavaScript snippets that run inside the VS Code
+extension host with the full `vscode.*` API in scope. Nothing runs without the user
+approving the exact snippet.
 
 **Explore the code with the tools the editor already has:** Find References,
 Go-to-Definition, hover types, workspace diagnostics, git blame, symbol outlines,
@@ -14,9 +18,9 @@ create/rename/delete via `WorkspaceEdit`, formatter output, source actions. Edit
 go through the language server — safer than `sed`/`awk` on files because they
 respect scope, imports, and semantics.
 
-Implant exposes a single MCP tool, `run_vscode_script`, that executes a JavaScript
-snippet inside the running VS Code extension host with full access to the
-`vscode.*` API. Nothing runs without the user approving the exact snippet.
+**Structural search and rewrite with ast-grep:** find and change every occurrence
+of a code shape across the workspace at once, in any language ast-grep supports,
+without the false hits regex gives you on comments and string literals.
 
 ![screenshot](https://github.com/strangepleasures/implant/raw/HEAD/docs/images/screenshot.png)
 
@@ -54,24 +58,6 @@ Requires GitHub Copilot for the language model. Read-only queries and refactor
 dry-runs are the sweet spot; anything that modifies files still opens the
 approval webview so you can eyeball the exact snippet before it runs.
 
-## Palette commands
-
-| Command | Purpose |
-| --- | --- |
-| **Implant: Install into Workspace** | Writes five portable, safe-to-commit files: `.vscode/implant/call.js` (stdio↔HTTP MCP proxy), `.mcp.json` (Claude Code / generic MCP config), `.cursor/mcp.json` (Cursor MCP config), `.claude/skills/implant/SKILL.md` (Claude Code skill), `.cursor/rules/implant.mdc` (Cursor rules). Also upserts an `<!-- BEGIN Implant --> … <!-- END Implant -->` section into `.github/copilot-instructions.md`. Prompts before overwriting; asks which folder in multi-root workspaces. |
-| **Implant: Copy Agent Instructions** | Copies the same instructions to the clipboard — paste into `AGENTS.md`, an agent's system prompt, or wherever your setup expects. |
-
-## Settings
-
-| key | default | meaning |
-| --- | --- | --- |
-| `implant.requireConfirmation` | `true` | Show the approval webview before each script runs. |
-| `implant.timeoutMs` | `0` | Hard execution timeout in ms. `0` disables it — long-running async scripts are cancelled by the user via a notification that appears after 10 seconds. Set to a positive value to enforce an automatic upper bound. |
-| `implant.port` | `0` | Port for the HTTP MCP server. `0` picks an ephemeral one; the actual port is written to `.vscode/implant/session.yml`. |
-
-The approval webview has a **Run + trust session** button that skips future
-prompts until the window is reloaded.
-
 ## Safety notes
 
 - Snippets run in the VS Code extension host with the same privileges as the
@@ -84,6 +70,7 @@ prompts until the window is reloaded.
   raise a warning notification so you notice anything poking at the port.
 - Even with the token gate, don't run this on a shared machine: any process
   running as your user can read the session file.
-- The confirmation prompt is the last line of defense. Only turn
-  `implant.requireConfirmation` off when the agent is already in a tight review
-  loop that you trust.
+- The `implant.requireConfirmation` workspace setting toggles the approval
+  webview. Leaving it on is the default for a reason; the per-session "Trust"
+  button on the approval webview is the escape hatch when you're actively
+  supervising a run.

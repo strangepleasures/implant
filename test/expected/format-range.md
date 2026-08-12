@@ -1,0 +1,1 @@
+**Would apply 4 edits** to lines 8–8 of `main.py` (anchored on `entry`, preview only — no changes written).

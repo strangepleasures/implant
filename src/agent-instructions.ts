@@ -1,110 +1,130 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const proseDir = path.join(__dirname, '..', 'assets', 'prose');
-const read = (name: string) => fs.readFileSync(path.join(proseDir, name), 'utf8').trimEnd();
+// Skill assets shipped in the vsix. Structure matches what gets written to
+// `.agents/skills/implant/` on install — a lean SKILL.md plus a `references/`
+// subtree (commands/, examples/, topics/, plus how-to-call.md at the top) per
+// agentskills.io. The chat participant also serves references from here on
+// demand via the language-model `load_implant_reference` tool.
+const skillDir = path.join(__dirname, '..', 'assets', 'skills', 'implant');
+const referencesDir = path.join(skillDir, 'references');
 
-export const OVERVIEW = read('overview.md');
-export const RUNTIME_ENV = read('runtime-env.md');
-export const HOW_TO_CALL = read('how-to-call.md');
-export const EXAMPLES = read('examples.md');
-export const WARMUP = read('warmup.md');
-export const CAVEATS = read('caveats.md');
+const SKILL_TEMPLATE = fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf8').trimEnd();
 
 /**
- * Description for the `run_vscode_script` MCP tool. Consumed by MCP clients
- * that are already connected to the server, so the "how to reach the server"
- * section (`.mcp.json` / `call.js`) is omitted.
+ * A file that ships under `references/`. Path is stored *relative* to the
+ * references root and without the `.md` extension — that's the identifier
+ * the chat-participant tool accepts and the SKILL.md's index uses.
+ */
+export interface SkillReference {
+	/** e.g. `topics/ast-grep`, `examples/find-references.js`. */
+	path: string;
+	/** File contents. */
+	contents: string;
+}
+
+function walkReferences(): SkillReference[] {
+	const out: SkillReference[] = [];
+	const walk = (rel: string) => {
+		const abs = path.join(referencesDir, rel);
+		for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+			const childRel = rel ? `${rel}/${entry.name}` : entry.name;
+			if (entry.isDirectory()) walk(childRel);
+			else if (entry.isFile() && /\.(md|js)$/.test(entry.name)) {
+				// `.md` files identify by basename (`examples/foo`); `.js` files keep
+				// their extension (`examples/foo.js`) so it's obvious they're runnable
+				// snippets, not prose. Both are served verbatim through
+				// `load_implant_reference`.
+				const stripped = entry.name.endsWith('.md')
+					? childRel.replace(/\.md$/, '')
+					: childRel;
+				out.push({
+					path: stripped,
+					contents: fs.readFileSync(path.join(referencesDir, childRel), 'utf8'),
+				});
+			}
+		}
+	};
+	walk('');
+	out.sort((a, b) => a.path.localeCompare(b.path));
+	return out;
+}
+
+const REFERENCES = walkReferences();
+const REFERENCE_BY_PATH = new Map(REFERENCES.map(r => [r.path, r]));
+
+/**
+ * SKILL.md content with the frontmatter version substituted for the current
+ * extension version. Written to `.agents/skills/implant/SKILL.md` (canonical)
+ * plus `.claude/skills/implant/SKILL.md` (Claude Code discovery) on install,
+ * and used at activation to compare against installed skills.
+ */
+export function skillMarkdown(version: string): string {
+	return SKILL_TEMPLATE.replace('{{VERSION}}', version) + '\n';
+}
+
+/**
+ * Cursor rule (`.cursor/rules/implant.mdc`). Cursor auto-attaches rules whose
+ * `description` matches the current task, so we reuse the SKILL frontmatter's
+ * description verbatim and inline the SKILL body.
+ */
+export function cursorRule(version: string): string {
+	const body = skillMarkdown(version);
+	const fm = body.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+	const description = fm?.[1].split(/\r?\n/).find(l => /^description\s*:/.test(l))
+		?.replace(/^description\s*:\s*/, '').trim() ?? '';
+	const skillBody = fm ? body.slice(fm[0].length) : body;
+	return `---\ndescription: ${description}\nalwaysApply: false\n---\n\n${skillBody.trimStart()}`;
+}
+
+/**
+ * AGENTS.md section body (without the marker comments — those are added by the
+ * upsert helper). Short pointer, not the full skill body: agents that read
+ * AGENTS.md at the root should find the canonical file via this pointer, not
+ * duplicate its content here.
+ */
+export function agentsSection(): string {
+	return [
+		'## Implant (VS Code MCP)',
+		'',
+		'Semantic code queries (references, definitions, diagnostics, renames, code actions) and structural edits, executed inside the running VS Code extension host.',
+		'',
+		'Invoke via the MCP tool `run_vscode_script` (server: `implant`). Full skill definition and progressive-disclosure references at `.agents/skills/implant/`.',
+	].join('\n');
+}
+
+/**
+ * Look up a reference by its identifier (path relative to `references/`, without
+ * the `.md` extension). Returns `undefined` if the path doesn't correspond to a
+ * shipped file. Used by the chat participant's `load_implant_reference` tool.
+ */
+export function skillReference(refPath: string): string | undefined {
+	return REFERENCE_BY_PATH.get(refPath)?.contents;
+}
+
+/**
+ * The full set of shipped references — used by `installIntoFolder` to mirror the
+ * tree into `.agents/skills/implant/references/` on install.
+ */
+export const SKILL_REFERENCES: readonly SkillReference[] = REFERENCES;
+
+/**
+ * Description for the `run_vscode_script` MCP tool. Consumed by MCP clients that
+ * are already connected to the server, so how-to-call is omitted.
  */
 export function mcpToolDescription(): string {
-	return join(OVERVIEW, RUNTIME_ENV, EXAMPLES, WARMUP, CAVEATS);
-}
-
-export function skillMarkdown(): string {
-	return `---
-description: Execute JavaScript inside the running VS Code extension host to invoke language-server commands (Find References, Rename, Hover, executeXxxProvider), read live diagnostics, run any VS Code palette command, or call third-party extension commands. Trigger when the user asks for cross-file references, real language-server info, live workspace state, or invoking editor / extension functionality — instead of shelling out to grep, find, or ad-hoc regex.
----
-
-<!--
-  Managed by the Implant VS Code extension.
-  Regenerate via the "Implant: Install into Workspace" palette command.
--->
-
-${join(OVERVIEW, HOW_TO_CALL, RUNTIME_ENV, EXAMPLES, WARMUP, CAVEATS)}
-`;
-}
-
-export function cursorRules(): string {
-	return `---
-description: Use the Implant helper to call vscode.* APIs (Find References, executeXxxProvider, palette commands, diagnostics) instead of shelling out to grep for language-server questions.
-alwaysApply: false
----
-
-<!--
-  Managed by the Implant VS Code extension.
-  Regenerate via the "Implant: Install into Workspace" palette command.
--->
-
-${join(OVERVIEW, HOW_TO_CALL, RUNTIME_ENV, EXAMPLES, WARMUP, CAVEATS)}
-`;
+	return concatReferences(r => r.path !== 'how-to-call');
 }
 
 /**
- * Section inserted into `.github/copilot-instructions.md` — Copilot Chat's
- * per-repo custom-instructions file. Wrapped in fenced markers so subsequent
- * runs of "Install into Workspace" can replace the section without touching
- * anything else the user has in the file.
+ * Full-body snippet for "Copy Agent Instructions" — for setups that can't read
+ * the SKILL.md format (older CLI rigs). Includes every reference so the receiver
+ * has the full material without follow-up loads.
  */
-export const COPILOT_MARK_START = '<!-- BEGIN Implant -->';
-export const COPILOT_MARK_END = '<!-- END Implant -->';
-
-export function copilotInstructions(): string {
-	return `${COPILOT_MARK_START}
-## Implant
-
-This workspace has the **Implant** VS Code extension installed. Implant exposes a chat
-participant, \`@implant\`, that runs a JavaScript snippet inside the VS Code extension host
-and streams the result back into chat. Through it the user gets access to:
-
-- Language-server commands: Find References, Go-to-Definition, Rename, Hover, Code Actions —
-  via \`vscode.executeXxxProvider\` calls, cross-file and semantics-aware.
-- Live workspace diagnostics, symbol outlines, editor and tab state.
-- Any command a third-party extension registers.
-- Both queries **and modifications** (structural rename, quick-fixes, \`WorkspaceEdit\`
-  file operations, formatter output) — going through the language server, not sed/awk on
-  files, so scope and imports are respected.
-
-**You cannot invoke \`@implant\` on the user's behalf** — it's a peer chat participant, not
-a tool you can call from GitHub Copilot Chat. When the user asks a question best answered
-by running code inside VS Code, **suggest they try \`@implant <their question>\`** and give
-them the exact prompt.
-
-Reach for it especially when the user wants:
-
-- Cross-cutting queries that would take multiple manual clicks (aggregate diagnostics per
-  file, top-N most-referenced symbols, dead-code candidates via zero-reference exports).
-- Answers formatted in a custom way (Markdown table, ASCII chart, GitHub-ready bug report).
-- Refactor dry-runs before applying (rename preview, code-action list).
-- Anything that combines multiple \`vscode.*\` APIs into a single answer.
-
-Example prompts to suggest:
-
-- \`@implant which exported symbols in src/ have zero references?\`
-- \`@implant sort my open tabs by diagnostic count so I know which file to fix first.\`
-- \`@implant list every TODO / FIXME / HACK comment grouped by tag, with clickable file:line links.\`
-- \`@implant draw an ASCII bar chart of source files by line count.\`
-- \`@implant give me a bug-report snapshot as GitHub-ready Markdown.\`
-
-Deeper documentation and the full \`vscode.*\` API surface: the user can run
-**Implant: Copy Agent Instructions** from the command palette.
-${COPILOT_MARK_END}
-`;
-}
-
 export function clipboardSnippet(): string {
-	return join(OVERVIEW, HOW_TO_CALL, RUNTIME_ENV, EXAMPLES, WARMUP, CAVEATS) + '\n';
+	return concatReferences(() => true) + '\n';
 }
 
-function join(...sections: string[]): string {
-	return sections.join('\n\n');
+function concatReferences(filter: (r: SkillReference) => boolean): string {
+	return REFERENCES.filter(filter).map(r => r.contents.trimEnd()).join('\n\n');
 }

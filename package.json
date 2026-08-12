@@ -1,7 +1,7 @@
 {
   "name": "implant",
   "displayName": "Implant",
-  "description": "Give coding agents live access to the VS Code API — Find References, Rename, diagnostics, any extension command — through an MCP tool.",
+  "description": "Give coding agents live programmatic access to the VS Code API and structural search — Find References, Rename, diagnostics, any extension command.",
   "version": "0.2.1",
   "publisher": "strangepleasures",
   "author": {
@@ -93,12 +93,24 @@
     ]
   },
   "scripts": {
-    "compile": "tsc -p .",
-    "watch": "tsc -w -p ."
+    "compile": "node scripts/refresh-types.mjs && tsc -p .",
+    "watch": "tsc -w -p .",
+    "package": "node scripts/package.mjs",
+    "publish": "node scripts/package.mjs --publish",
+    "test": "tsc -p test && node test/out/run-examples.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.95.0",
     "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@ast-grep/lang-c": "^0.0.6",
+    "@ast-grep/lang-cpp": "^0.0.6",
+    "@ast-grep/lang-go": "^0.0.6",
+    "@ast-grep/lang-java": "^0.0.7",
+    "@ast-grep/lang-python": "^0.0.6",
+    "@ast-grep/lang-rust": "^0.0.7",
+    "@ast-grep/napi": "^0.45.1"
   }
 }
