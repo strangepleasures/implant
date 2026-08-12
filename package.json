@@ -2,7 +2,7 @@
   "name": "implant",
   "displayName": "Implant",
   "description": "Give coding agents live programmatic access to the VS Code API and structural search — Find References, Rename, diagnostics, any extension command.",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "publisher": "strangepleasures",
   "author": {
     "name": "Pavel Mikhailovskii",
