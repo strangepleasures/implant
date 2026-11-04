@@ -8,15 +8,14 @@ const referencesDir = path.join(skillDir, 'references');
 const SKILL_TEMPLATE = fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf8').trimEnd();
 
 /**
- * A file that ships under `references/`. Path is stored *relative* to the
- * references root and without the `.md` extension — that's the identifier
- * the chat-participant tool accepts and the SKILL.md's index uses.
+ * A file that ships under `references/`. Paths are relative to the references
+ * root; Markdown IDs omit `.md`, while runnable and declaration files keep
+ * their extensions.
  */
 export interface SkillReference {
 	/** e.g. `topics/ast-grep`, `examples/find-references.js`. */
 	path: string;
-	/** File contents. */
-	contents: string;
+	absolutePath: string;
 }
 
 function walkReferences(): SkillReference[] {
@@ -27,16 +26,14 @@ function walkReferences(): SkillReference[] {
 			const childRel = rel ? `${rel}/${entry.name}` : entry.name;
 			if (entry.isDirectory()) walk(childRel);
 			else if (entry.isFile() && /\.(md|js)$/.test(entry.name)) {
-				// `.md` files identify by basename (`examples/foo`); `.js` files keep
-				// their extension (`examples/foo.js`) so it's obvious they're runnable
-				// snippets, not prose. Both are served verbatim through
-				// `load_implant_reference`.
+				// Markdown IDs omit `.md`; runnable snippets keep `.js`. API
+				// declarations are handled by the dedicated list/get tools.
 				const stripped = entry.name.endsWith('.md')
 					? childRel.replace(/\.md$/, '')
 					: childRel;
 				out.push({
 					path: stripped,
-					contents: fs.readFileSync(path.join(referencesDir, childRel), 'utf8'),
+					absolutePath: path.join(referencesDir, childRel),
 				});
 			}
 		}
@@ -63,7 +60,6 @@ export function skillMarkdown(version: string): string {
  * shipped file. Used by the chat participant's `load_implant_reference` tool.
  */
 export function skillReference(refPath: string): string | undefined {
-	return REFERENCE_BY_PATH.get(refPath)?.contents;
+	const reference = REFERENCE_BY_PATH.get(refPath);
+	return reference ? fs.readFileSync(reference.absolutePath, 'utf8') : undefined;
 }
-
-export const SKILL_REFERENCES: readonly SkillReference[] = REFERENCES;

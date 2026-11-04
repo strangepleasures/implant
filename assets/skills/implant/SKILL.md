@@ -42,8 +42,8 @@ declaration; that just defines a function without calling it.
   `notebooks`, `scm`, `tests`. Plus VS Code's data classes (`Uri`, `Range`, `Position`,
   `Location`, `Selection`, `WorkspaceEdit`, …) and enums (`SymbolKind`, `DiagnosticSeverity`,
   `CodeActionKind`, …). Every semantic query, every edit, every editor-state read goes
-  through here. See `vscode-api-types` for the full type-declaration file, or
-  `vscode-docs-commands` for the built-in commands list.
+  through here. Use `list_api_declarations` and `get_api_declaration` for VS Code or
+  ast-grep type declarations, or `vscode-docs-commands` for the built-in commands list.
 - **`astGrep`** — the bundled `@ast-grep/napi` module (structural search + rewrite).
   Built-in languages: `Html`, `JavaScript`, `Tsx`, `Css`, `TypeScript`. Additional
   languages registered on activation: `Python`, `Go`, `Rust`, `Java`, `C`, `Cpp`. See
@@ -306,22 +306,12 @@ Redistributed verbatim under CC BY 3.0 US. Broader in scope than what we cover u
 terser per-command detail. Load when you need to look up something not covered by our
 per-command examples.
 
-### `ast-grep-api-types` — full `@ast-grep/napi` declarations
+### API declaration tools
 
-Every `.d.ts` file from `@ast-grep/napi` concatenated with section dividers — the
-authoritative type reference for the `astGrep` global. ~20 KB / ~600 lines,
-redistributed under MIT. Load when you need the exact shape of an ast-grep type or
-method (`SgNode`, `SgRoot`, `Rule`, `NapiConfig`, per-language `Lang.*` shortcuts, …)
-beyond what `topics/ast-grep` covers.
-
-### `vscode-api-types` — full `@types/vscode` declarations *(725 KB — load with care)*
-
-The complete TypeScript declaration file for the `vscode.*` API (`index.d.ts` from
-`@types/vscode`, redistributed under MIT). Authoritative: every type, every method,
-every property, with JSDoc. **Very large — around 150K tokens.** Load only when you
-need to look up a specific signature or type shape that neither our per-command
-examples nor `vscode-docs-commands` cover. Prefer probing (`return typeof x` /
-`return Object.keys(x)`) for cheap questions.
+Use `list_api_declarations` with `api: "vscode"` or `api: "ast-grep"` to discover
+exported declarations and their qualified names. Then call `get_api_declaration` with
+the same API ID and an exact name from the list. It returns the original declaration
+source, including TSDoc. Add future APIs to the shared `api-sources.json` registry.
 
 ### `examples/` — runnable JS snippets
 

@@ -95,7 +95,7 @@
     ]
   },
   "scripts": {
-    "compile": "node scripts/refresh-types.mjs && tsc -p .",
+    "compile": "node scripts/refresh-types.mjs && node scripts/clean.mjs && tsc -p .",
     "watch": "tsc -w -p .",
     "package": "node scripts/package.mjs",
     "publish": "node scripts/package.mjs --publish",

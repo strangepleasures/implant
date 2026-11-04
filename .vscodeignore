@@ -15,3 +15,5 @@ scripts/**
 test/**
 **/*.map
 **/*.ts
+!assets/skills/implant/references/vscode-api/**/*.d.ts
+!assets/skills/implant/references/ast-grep-api/**/*.d.ts

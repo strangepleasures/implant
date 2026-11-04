@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { ExecResult } from './executor';
-import { SKILL_REFERENCES, skillMarkdown, skillReference } from './agent-instructions';
+import { skillMarkdown, skillReference } from './agent-instructions';
+import { apiSourceIds, getApiDeclaration, listApiDeclarations } from './api-declarations';
 
 // Chat-specific format rules. The model produces raw JavaScript that we execute
 // verbatim, so no fences, no prose. Runtime primer + reference list follow.
@@ -44,8 +45,6 @@ const FEWSHOT_ASSISTANT =
 const files = await vscode.workspace.findFiles('src/**/*.ts', '**/node_modules/**');
 return files.length;`;
 
-const REFERENCE_PATHS = SKILL_REFERENCES.map(r => r.path).sort();
-
 const LM_TOOLS: vscode.LanguageModelChatTool[] = [{
 	name: 'load_implant_reference',
 	description:
@@ -54,8 +53,10 @@ const LM_TOOLS: vscode.LanguageModelChatTool[] = [{
 		'by basename without the extension (e.g. `topics/ast-grep`, ' +
 		'`vscode-docs-commands`). Runnable snippets under `examples/` keep their `.js` ' +
 		'extension and are named by action (e.g. `examples/find-references.js`, ' +
-		'`examples/rename-symbol.js`, `examples/render-dep-graph.js`). See the ' +
-		'"References" section of the SKILL.md above for the catalog. Load only when ' +
+		'`examples/rename-symbol.js`, `examples/render-dep-graph.js`). Use ' +
+		'`list_api_declarations` and `get_api_declaration` to inspect registered API ' +
+		'declarations; this tool is for prose docs and runnable examples. See the ' +
+		'"References" section of the SKILL.md above for other references. Load only when ' +
 		'the current task needs that specific detail; do not preload; do not request ' +
 		'the same path twice.',
 	inputSchema: {
@@ -63,11 +64,36 @@ const LM_TOOLS: vscode.LanguageModelChatTool[] = [{
 		properties: {
 			path: {
 				type: 'string',
-				enum: REFERENCE_PATHS,
-				description: 'Path of the reference to load, relative to references/, without `.md`.',
+				description: 'Path of a prose or example reference, relative to references/. Use list_api_declarations/get_api_declaration for API declarations.',
 			},
 		},
 		required: ['path'],
+	},
+}, {
+	name: 'list_api_declarations',
+	description:
+		'List exported declarations in one registered API source. API IDs: ' + apiSourceIds().join(', ') +
+		'. Namespace members use qualified names like `workspace.findFiles`. Use prefix to narrow the list.',
+	inputSchema: {
+		type: 'object',
+		properties: {
+			api: { type: 'string', enum: apiSourceIds(), description: 'Registered API source ID.' },
+			prefix: { type: 'string', description: 'Optional declaration-name or namespace prefix.' },
+		},
+		required: ['api'],
+	},
+}, {
+	name: 'get_api_declaration',
+	description:
+		'Retrieve the original .d.ts source of a declaration listed by `list_api_declarations`. ' +
+		'Pass its qualified name exactly; overloads are returned together.',
+	inputSchema: {
+		type: 'object',
+		properties: {
+			api: { type: 'string', enum: apiSourceIds(), description: 'Registered API source ID.' },
+			declaration: { type: 'string', description: 'Qualified declaration name returned by list_api_declarations.' },
+		},
+		required: ['api', 'declaration'],
 	},
 }];
 // Cap on tool-call rounds per user turn. Typical flow needs 0–1 rounds; more usually
@@ -241,6 +267,18 @@ function handleToolCall(
 	loaded: Set<string>,
 	stream: vscode.ChatResponseStream,
 ): string {
+	if (call.name === 'list_api_declarations') {
+		const input = call.input as { api?: unknown; prefix?: unknown };
+		if (typeof input.api !== 'string') return 'Error: `api` argument missing or not a string.';
+		if (input.prefix !== undefined && typeof input.prefix !== 'string') return 'Error: `prefix` must be a string.';
+		return listApiDeclarations(input.api, input.prefix as string | undefined);
+	}
+	if (call.name === 'get_api_declaration') {
+		const input = call.input as { api?: unknown; declaration?: unknown };
+		if (typeof input.api !== 'string') return 'Error: `api` argument missing or not a string.';
+		if (typeof input.declaration !== 'string') return 'Error: `declaration` argument missing or not a string.';
+		return getApiDeclaration(input.api, input.declaration);
+	}
 	if (call.name !== 'load_implant_reference') {
 		return `Error: unknown tool '${call.name}'.`;
 	}
@@ -253,7 +291,7 @@ function handleToolCall(
 	}
 	const ref = skillReference(refPath);
 	if (!ref) {
-		return `Error: unknown reference '${refPath}'. Valid paths: ${REFERENCE_PATHS.join(', ')}.`;
+		return `Error: unknown prose/example reference '${refPath}'. Use list_api_declarations and get_api_declaration for VS Code or ast-grep declarations.`;
 	}
 	loaded.add(refPath);
 	stream.markdown(`_↓ loaded reference: \`${refPath}\`_\n\n`);

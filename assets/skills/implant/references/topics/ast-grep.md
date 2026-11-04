@@ -73,7 +73,6 @@ language if it's important.
 
 ## Full API reference
 
-- **Bundled `.d.ts` types:** `ast-grep-api-types` — every JS-API type declaration
-  (`SgNode`, `SgRoot`, `Rule`, `NapiConfig`, `Edit`, `Pos`, `Range`, …) concatenated in
-  one reference. Load it via `load_implant_reference` when the exact type shape matters.
-- **Upstream docs:** <https://ast-grep.github.io/guide/api-usage/js-api>
+Use `list_api_declarations` with `api: "ast-grep"` to discover exported declarations,
+then `get_api_declaration` with the exact declaration name to retrieve its original
+`.d.ts` source. The upstream guide is at <https://ast-grep.github.io/guide/api-usage/js-api>.

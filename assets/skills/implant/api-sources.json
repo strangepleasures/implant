@@ -1,0 +1,20 @@
+{
+  "apis": [
+    {
+      "id": "vscode",
+      "label": "VS Code",
+      "package": "@types/vscode",
+      "directory": "vscode-api",
+      "entryFile": "index.d.ts",
+      "ambientModule": "vscode"
+    },
+    {
+      "id": "ast-grep",
+      "label": "ast-grep",
+      "package": "@ast-grep/napi",
+      "directory": "ast-grep-api",
+      "entryFile": "index.d.ts",
+      "declarationDirectories": ["types"]
+    }
+  ]
+}

@@ -35,8 +35,8 @@ assets/
 scripts/
   package.mjs           builds one universal .vsix that carries every
                         @ast-grep/napi platform binary. `npm run package`.
-  refresh-types.mjs     regenerates the vendored vscode/ast-grep type
-                        references shipped under assets/skills/implant/references.
+  refresh-types.mjs     copies registered API declaration sources into references/
+                        from the shared api-sources.json registry.
 
 docs/
   images/
