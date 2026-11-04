@@ -1,7 +1,7 @@
 // Read the first source file's semantic tokens and decode them against the provider's legend — returns JSON for programmatic classification queries ("all read-only bindings", "all identifiers of type X", ...).
 
 // One of the few examples that returns JSON rather than Markdown (see the
-// "Output shape" section of SKILL.md). Semantic tokens are inherently
+// "Output shape" section of PROMPT.md). Semantic tokens are inherently
 // structured data — Markdown formatting would obscure the classification.
 //
 // Semantic tokens carry richer classification than the tree-sitter grammar

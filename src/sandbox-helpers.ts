@@ -1,3 +1,4 @@
+// Helper functions exposed to sandboxed scripts as globals.
 import * as vscode from 'vscode';
 
 /**

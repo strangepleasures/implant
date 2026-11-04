@@ -1,7 +1,7 @@
 // Aggregate severity counts per file — returns JSON for programmatic consumption (feed into another script, dashboard, badge).
 
 // One of the few examples that returns JSON rather than Markdown. The rule of
-// thumb (see the "Output shape" section of SKILL.md): Markdown for humans,
+// thumb (see the "Output shape" section of PROMPT.md): Markdown for humans,
 // JSON when another program parses the result. For a human-readable dump,
 // see `list-workspace-diagnostics.js`.
 //

@@ -2,7 +2,6 @@
   "apis": [
     {
       "id": "vscode",
-      "label": "VS Code",
       "package": "@types/vscode",
       "directory": "vscode-api",
       "entryFile": "index.d.ts",
@@ -10,7 +9,6 @@
     },
     {
       "id": "ast-grep",
-      "label": "ast-grep",
       "package": "@ast-grep/napi",
       "directory": "ast-grep-api",
       "entryFile": "index.d.ts",

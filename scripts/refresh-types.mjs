@@ -4,10 +4,13 @@
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-const REFERENCES_ROOT = 'assets/skills/implant/references';
-const REGISTRY_PATH = 'assets/skills/implant/api-sources.json';
+/** Root folder receiving the copied declarations. */
+const REFERENCES_ROOT = 'assets/references';
+/** Registry listing each API's npm package and declaration files. */
+const REGISTRY_PATH = 'assets/references/api-sources.json';
 const registry = JSON.parse(readFileSync(REGISTRY_PATH, 'utf8'));
 
+/** Recursively copies `.d.ts` files from `sourceDirectory` to `destinationDirectory`. */
 function copyDeclarations(sourceDirectory, destinationDirectory) {
 	mkdirSync(destinationDirectory, { recursive: true });
 	for (const entry of readdirSync(sourceDirectory, { withFileTypes: true })) {
@@ -27,7 +30,7 @@ for (const api of registry.apis) {
 	for (const directory of api.declarationDirectories ?? []) {
 		copyDeclarations(join(sourceRoot, directory), join(destinationRoot, directory));
 	}
-	console.log(`Copied ${api.label} declarations to ${destinationRoot}`);
+	console.log(`Copied ${api.id} declarations to ${destinationRoot}`);
 }
 
 rmSync(join(REFERENCES_ROOT, 'vscode-api-types.md'), { force: true });

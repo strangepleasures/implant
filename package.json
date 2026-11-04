@@ -2,7 +2,7 @@
   "name": "implant",
   "displayName": "Implant",
   "description": "Use VS Code language services, extension commands, and structural search directly from Copilot Chat and VS Code agents.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "strangepleasures",
   "author": {
     "name": "Pavel Mikhailovskii",
@@ -46,11 +46,6 @@
     "configuration": {
       "title": "Implant",
       "properties": {
-        "implant.requireConfirmation": {
-          "type": "boolean",
-          "default": true,
-          "description": "Require an in-chat confirmation before running each script."
-        },
         "implant.timeoutMs": {
           "type": "number",
           "default": 0,
@@ -75,7 +70,13 @@
         "modelDescription": "Execute JavaScript in the VS Code extension host with access to the vscode API, language services, and installed extensions. Use for semantic code queries and editor operations. This tool can modify files or run arbitrary extension-host code; inspect the requested action carefully.",
         "userDescription": "Run a JavaScript snippet in VS Code with the user's approval.",
         "canBeReferencedInPrompt": true,
-        "tags": ["implant", "vscode", "language-services"],
+        "tags": [
+          "implant",
+          "vscode",
+          "ast",
+          "automation",
+          "language-services"
+        ],
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -88,7 +89,9 @@
               "description": "Optional per-call hard timeout in milliseconds; overrides implant.timeoutMs. 0 disables the timeout."
             }
           },
-          "required": ["code"],
+          "required": [
+            "code"
+          ],
           "additionalProperties": false
         }
       }

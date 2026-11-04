@@ -17,11 +17,13 @@ import { cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+/** Extension version from package.json, used in the vsix file name. */
 const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
 const napiVersion = JSON.parse(readFileSync('package-lock.json', 'utf8'))
 	.packages['node_modules/@ast-grep/napi'].version;
 const shouldPublish = process.argv.includes('--publish');
 
+/** Native-binary platforms bundled into the universal vsix. */
 // VS Code dropped 32-bit Windows in 1.35 (2019), so `win32-ia32-msvc` is skipped.
 const platforms = [
 	{ name: 'darwin-arm64',      os: 'darwin', cpu: 'arm64' },
@@ -34,6 +36,7 @@ const platforms = [
 	{ name: 'win32-x64-msvc',    os: 'win32',  cpu: 'x64' },
 ];
 
+/** Runs a shell command, echoing it and streaming its output. */
 const run = cmd => {
 	console.log(`\n$ ${cmd}`);
 	execSync(cmd, { stdio: 'inherit' });

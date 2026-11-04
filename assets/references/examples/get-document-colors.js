@@ -1,7 +1,7 @@
 // Color literals detected in the first CSS-family file of the workspace as JSON — for palette audits, format conversion, or piping into `get-color-presentations.js`.
 
 // One of the few examples that returns JSON rather than Markdown (see the
-// "Output shape" section of SKILL.md). The raw `{ red, green, blue, alpha }`
+// "Output shape" section of PROMPT.md). The raw `{ red, green, blue, alpha }`
 // (0.0–1.0) is what downstream tooling actually wants; a human-readable form
 // would lose precision.
 //

@@ -5,7 +5,7 @@
 // reorderings (unlike "first-symbol-in-first-file" auto-discovery). On a cold
 // provider, workspace-symbol search may return [] until indexing finishes —
 // this script polls up to ~20 s (see the "Warming up lazy providers" section
-// of SKILL.md).
+// of PROMPT.md).
 
 const SYMBOL_NAME = "greet"; // adjust to a symbol that exists in your workspace
 

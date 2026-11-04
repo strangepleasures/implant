@@ -1,13 +1,19 @@
+// Converts arbitrary script results into bounded, JSON-safe values.
 import * as vscode from 'vscode';
 
-const MAX_DEPTH = 8;
-const MAX_ARRAY = 500;
-const MAX_STRING = 20_000;
-
+/** Returns a JSON-safe copy of `value`: cycles, depth, sizes limited; VS Code types tagged with `__type`. */
 export function serialize(value: unknown): unknown {
 	return walk(value, 0, new WeakSet());
 }
 
+/** Maximum nesting depth before values are replaced by a placeholder. */
+const MAX_DEPTH = 8;
+/** Maximum array/Map/Set entries kept. */
+const MAX_ARRAY = 500;
+/** Maximum string length kept. */
+const MAX_STRING = 20_000;
+
+/** Recursive worker for `serialize`; `seen` detects cycles. */
 function walk(value: unknown, depth: number, seen: WeakSet<object>): unknown {
 	if (value === null || value === undefined) return value;
 	const t = typeof value;
@@ -63,6 +69,7 @@ function walk(value: unknown, depth: number, seen: WeakSet<object>): unknown {
 	return out;
 }
 
+/** Serializes Uri/Position/Range/Selection/Location, or returns undefined for other objects. */
 function tryVscode(v: object): unknown {
 	if (v instanceof vscode.Uri) return { __type: 'Uri', scheme: v.scheme, path: v.path, fsPath: v.fsPath, toString: v.toString() };
 	if (v instanceof vscode.Position) return { __type: 'Position', line: v.line, character: v.character };

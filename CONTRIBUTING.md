@@ -7,36 +7,49 @@ want to use Implant, see [README.md](./README.md).
 
 ```
 src/
-  extension.ts          chat and language-model tool registration, execution
-                        approval, cancellation, timeout, and slow-script watch.
+  extension.ts          entry point; wires up the participant and the tool.
+  run-script-tool.ts    registers the "Run VS Code Script" language-model tool
+                        and its confirmation prompt.
+  script-runner.ts      applies timeout config and cancellation to a run.
+  slow-script-watch.ts  cancellable notification for long-running scripts.
   executor.ts           vm.Script sandbox with vscode/astGrep/activateLanguage/
-                        console/require injected, AbortSignal cancellation,
-                        optional hard timeout. Registers dynamic ast-grep
-                        languages (Python/Go/Rust/Java/C/C++) at module load.
-  sandbox-helpers.ts    activateLanguage(langId, timeoutMs?) — kicks
-                        onLanguage:<id> activation events and polls
-                        executeDocumentSymbolProvider until it responds. Exposed
-                        as a sandbox global.
-  serialize.ts          walker that turns vscode.* types (Uri, Range, Position,
-                        Location, Selection) into plain JSON, with cycle/depth/
-                        array/string caps.
-  agent-instructions.ts loads the SKILL.md + references/ subtree from
-                        assets/skills/implant/ at module load for chat prompts.
-  chat-participant.ts   @implant Copilot Chat participant. Feeds SKILL.md as the
-                        system prompt, loads references on demand, and executes
-                        the returned snippet through the shared executor.
+                        console/require injected.
+  dynamic-languages.ts  registers Python/Go/Rust/Java/C/C++ ast-grep languages.
+  sandbox-console.ts    console object that captures logs for the result.
+  sandbox-helpers.ts    activateLanguage(langId, timeoutMs?) sandbox global.
+  script-timeout.ts     timeout/abort wrapper for async scripts.
+  exec-result.ts        ExecResult type.
+  log-entry.ts          LogEntry type.
+  serialize.ts          turns vscode.* types into capped plain JSON.
+  code-fence.ts         strips markdown fences from model output.
+  model-picker.ts       chooses the language model for a request.
+  prompt-assets.ts      loads PROMPT.md + references from assets/references/.
+  api-source.ts         ApiSource type.
+  api-declaration.ts    ApiDeclaration type.
+  api-sources.ts        registry of API sources (api-sources.json).
+  declaration-parser.ts extracts exported declarations from .d.ts ASTs.
+  declaration-index.ts  builds and caches declarations per API source.
+  api-lookup.ts         list/get lookup used by the chat tools.
+  chat-participant.ts   @implant participant: prompt -> script -> run -> render.
+  chat-prompts.ts       system prompt and few-shot example.
+  chat-tools.ts         tool definitions offered to the model.
+  chat-tool-handler.ts  executes the model's tool calls.
+  chat-lm-loop.ts       tool-call loop until the final script arrives.
+  chat-history.ts       builds the message list from chat history.
+  chat-render.ts        runs a script via the tool and renders the outcome.
+  chat-retry.ts         one regeneration attempt after a failed script.
 
 assets/
-  skills/implant/       prompt and reference payload for @implant; references/
-                        holds runnable snippets and topical API guidance loaded
-                        on demand via load_implant_reference.
+  references/           PROMPT.md plus runnable snippets, topical guidance, and
+                        bundled API declarations; references load on demand via
+                        load_implant_reference.
   icon.png              extension icon.
 
 scripts/
   package.mjs           builds one universal .vsix that carries every
                         @ast-grep/napi platform binary. `npm run package`.
-  refresh-types.mjs     copies registered API declaration sources into references/
-                        from the shared api-sources.json registry.
+  refresh-types.mjs     copies registered API declaration sources into assets/
+                        references/ using api-sources.json.
 
 docs/
   images/
@@ -93,7 +106,7 @@ Platforms bundled: `darwin-arm64`, `darwin-x64`, `linux-{arm64,x64}-{gnu,musl}`,
 
 **Agent request → VS Code language-model tool or `@implant` participant → approval → executor → result.**
 
-1. `chat-participant.ts` handles `@implant` requests, asks the selected model for
+1. `chat-participant.ts` (with the `chat-*.ts` modules) handles `@implant` requests, asks the selected model for
   a JavaScript snippet, and loads skill references on demand. It executes the
   snippet by invoking the registered language-model tool with the request's chat
   token, so native confirmation and output stay in the same conversation.
@@ -102,7 +115,7 @@ Platforms bundled: `darwin-arm64`, `darwin-x64`, `linux-{arm64,x64}-{gnu,musl}`,
   confirmation with the requested code. `invoke` calls the same `runScript`
   pipeline, forwarding the language-model tool cancellation token and optional
   timeout.
-3. `runScript` invokes `executor.ts::execute`, which compiles the snippet with
+3. `script-runner.ts::runScript` invokes `executor.ts::execute`, which compiles the snippet with
   `vm.Script`, injects `vscode` / `console` / `require` and other globals, and
   applies cancellation and the configured hard timeout. `serialize.ts`
   normalizes the returned value. Slow scripts get a cancellable progress
@@ -110,8 +123,8 @@ Platforms bundled: `darwin-arm64`, `darwin-x64`, `linux-{arm64,x64}-{gnu,musl}`,
 
 ## Agent prompt and references
 
-The prompt and reference payload live under `assets/skills/implant/`. `SKILL.md`
-is loaded as the `@implant` system prompt; `references/` contains runnable
+The prompt and reference payload live under `assets/references/`. `PROMPT.md`
+is loaded as the `@implant` system prompt; the same directory contains runnable
 examples, topical guidance, and bundled API declarations loaded on demand via
 `load_implant_reference`. Rebuild the extension to ship updated assets in the
 VSIX.
