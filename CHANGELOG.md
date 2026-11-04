@@ -5,6 +5,22 @@ All notable changes to **Implant** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-11-04
+
+### Added
+
+- **Native Implant tool for VS Code agent sessions** — run scripts through VS Code's Language Model Tool API without configuring an MCP server.
+- **API declaration lookup in `@implant`** — list and retrieve original declarations for VS Code and ast-grep APIs when an exact type or signature is needed.
+
+### Changed
+
+- **Script approval stays in chat.** `@implant` now uses VS Code's inline Continue/Cancel confirmation, and results return in the same chat conversation. The separate approval webview has been removed.
+- **VS Code and ast-grep API references use their original declaration files**, making individual types and signatures available on demand instead of loading a concatenated reference.
+
+### Removed
+
+- **MCP server and client configuration support.** Implant no longer starts an HTTP MCP server or writes workspace MCP configuration. CLI agents that depended on the Implant MCP server must use a supported VS Code integration instead.
+
 ## [0.3.0] — 2026-08-12
 
 ### Added
