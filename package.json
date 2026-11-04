@@ -1,7 +1,7 @@
 {
   "name": "implant",
   "displayName": "Implant",
-  "description": "Give coding agents live programmatic access to the VS Code API and structural search — Find References, Rename, diagnostics, any extension command.",
+  "description": "Use VS Code language services, extension commands, and structural search directly from Copilot Chat and VS Code agents.",
   "version": "0.3.0",
   "publisher": "strangepleasures",
   "author": {
@@ -25,14 +25,10 @@
     "Chat"
   ],
   "keywords": [
-    "mcp",
     "ai",
     "agent",
     "coding-agent",
     "copilot",
-    "claude",
-    "claude-code",
-    "cursor",
     "llm",
     "automation",
     "language-server",
@@ -43,8 +39,8 @@
   "icon": "assets/icon.png",
   "main": "./out/extension.js",
   "activationEvents": [
-    "onStartupFinished",
-    "onChatParticipant:implant.assistant"
+    "onChatParticipant:implant.assistant",
+    "onLanguageModelTool:implant_run_vscode_script"
   ],
   "contributes": {
     "configuration": {
@@ -53,30 +49,15 @@
         "implant.requireConfirmation": {
           "type": "boolean",
           "default": true,
-          "description": "Show the approval webview before running each script."
+          "description": "Require an in-chat confirmation before running each script."
         },
         "implant.timeoutMs": {
           "type": "number",
           "default": 0,
           "description": "Hard execution timeout per script, in milliseconds. 0 disables the timeout — the user cancels long-running scripts through the notification that appears after 10 seconds. Set to a positive number to also enforce an automatic upper bound."
-        },
-        "implant.port": {
-          "type": "number",
-          "default": 0,
-          "description": "Port for the local MCP HTTP server. 0 picks an ephemeral port; the actual port and per-session bearer token are written to .vscode/implant/session.yml in every open workspace folder."
         }
       }
     },
-    "commands": [
-      {
-        "command": "implant.installIntoWorkspace",
-        "title": "Implant: Install into Workspace"
-      },
-      {
-        "command": "implant.copyAgentInstructions",
-        "title": "Implant: Copy Agent Instructions"
-      }
-    ],
     "chatParticipants": [
       {
         "id": "implant.assistant",
@@ -86,10 +67,30 @@
         "isSticky": true
       }
     ],
-    "mcpServerDefinitionProviders": [
+    "languageModelTools": [
       {
-        "id": "implant",
-        "label": "Implant"
+        "name": "implant_run_vscode_script",
+        "toolReferenceName": "runVscodeScript",
+        "displayName": "Implant",
+        "modelDescription": "Execute JavaScript in the VS Code extension host with access to the vscode API, language services, and installed extensions. Use for semantic code queries and editor operations. This tool can modify files or run arbitrary extension-host code; inspect the requested action carefully.",
+        "userDescription": "Run a JavaScript snippet in VS Code with the user's approval.",
+        "canBeReferencedInPrompt": true,
+        "tags": ["implant", "vscode", "language-services"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "description": "JavaScript source executed as the body of an async function. The vscode, astGrep, and activateLanguage globals are available."
+            },
+            "timeoutMs": {
+              "type": "number",
+              "description": "Optional per-call hard timeout in milliseconds; overrides implant.timeoutMs. 0 disables the timeout."
+            }
+          },
+          "required": ["code"],
+          "additionalProperties": false
+        }
       }
     ]
   },
@@ -98,7 +99,7 @@
     "watch": "tsc -w -p .",
     "package": "node scripts/package.mjs",
     "publish": "node scripts/package.mjs --publish",
-    "test": "tsc -p test && node test/out/run-examples.js"
+    "test": "npm run compile"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

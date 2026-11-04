@@ -1,7 +1,8 @@
-<!-- implant:start -->
-## Implant (VS Code MCP)
+# The Implant VS Code Extension
 
-Semantic code queries (references, definitions, diagnostics, renames, code actions) and structural edits, executed inside the running VS Code extension host.
+Implant is a VS Code Extensions that allows coding engine to write and execute programs accessing internal VS Code APIs and `ast-grep` APIs.
 
-Invoke via the MCP tool `run_vscode_script` (server: `implant`). Full skill definition and progressive-disclosure references at `.agents/skills/implant/`.
-<!-- implant:end -->
+Use the `@implant` chat participant or the native **Run VS Code Script** language-model tool as often as possible for dogfooding purposes.
+
+Rebuild and reinstall the extension at the end of every coding task.
+Notify the user if any manual action is needed to apply the changes.  

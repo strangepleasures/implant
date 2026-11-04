@@ -76,7 +76,7 @@ const MAX_TOOL_ROUNDS = 4;
 
 type RunFn = (
 	code: string,
-	options?: { skipApproval?: boolean; signal?: AbortSignal },
+	options?: { signal?: AbortSignal },
 ) => Promise<ExecResult>;
 
 interface PendingMeta {
@@ -390,7 +390,7 @@ async function runAndRender(
 
 	let result: ExecResult;
 	try {
-		result = await run(code, { skipApproval: true, signal: controller.signal });
+		result = await run(code, { signal: controller.signal });
 	} finally {
 		cancelSub.dispose();
 	}

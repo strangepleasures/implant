@@ -5,7 +5,6 @@
 .cursor/**
 .github/**
 docs/**
-.mcp.json
 node_modules/**
 !node_modules/@ast-grep/**
 src/**

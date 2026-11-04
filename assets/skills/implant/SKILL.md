@@ -4,11 +4,6 @@ version: {{VERSION}}
 description: Query and edit code using VS Code's language services and structural search powered by ast-grep — find references, definitions, call hierarchies, workspace symbols, diagnostics; rename symbols; apply built-in and custom refactorings; run any VS Code command or third-party extension command from the extension host. Use whenever the user asks about symbol usage, cross-file refactors, "where is X called from", call graphs, semantic renames, dead-code checks, or anything that needs the language server's authoritative answer rather than a text/regex guess — works uniformly across any languages covered by the installed extensions.
 ---
 
-<!--
-  Managed by the Implant VS Code extension.
-  Regenerate via the "Implant: Install into Workspace" palette command.
--->
-
 # Implant
 
 Implant runs a short JavaScript snippet inside the running VS Code extension host and
@@ -22,23 +17,13 @@ third-party extension, or to VS Code itself (live diagnostics, tab state, palett
 output). **Don't** reach for it for reading files, running `git`, or filesystem walks —
 the shell is faster and doesn't prompt for approval.
 
-## Invoke via the MCP tool `run_vscode_script`
+## Invocation
 
-Implant is exposed as an **MCP server named `implant`**, contributed via the workspace
-`.mcp.json`. Two tools:
-- **`run_vscode_script`** — `code` (required, string), `timeoutMs` (optional, number).
-  `timeoutMs` overrides `implant.timeoutMs` for that call only; 0 disables the timeout.
-  Use it when you expect a call to be slow (warming a language server) or want an
-  automatic abort ceiling without changing workspace settings.
-- **`terminate_scripts`** — no arguments. Aborts every running Implant script in this
-  window. Returns `{ aborted: N }`. Reach for this when a previous call is hanging
-  (waiting on an unresponsive language server, an infinite polling loop, etc.) so
-  you can unstick the extension host before the next call.
-
-Modern MCP clients pick these up automatically. If the tool is missing, the workspace
-hasn't been set up — ask the user to run **Implant: Install into Workspace** from the
-palette; for older CLI agents that can't auto-discover the config, see `how-to-call`
-for the fallback MCP entry pointing at the bundled `.vscode/implant/call.js` proxy.
+Invoke **`@implant`** in Copilot Chat, or use the contributed **Implant** language-model
+tool from a VS Code agent.
+Both execute JavaScript inside this extension host. The native tool accepts `code` and
+an optional `timeoutMs`; VS Code asks for confirmation before execution unless
+`implant.requireConfirmation` is disabled.
 
 ## Runtime
 
@@ -129,10 +114,10 @@ covered by our per-command files under `examples/`.
   approves each call and that comment is the first thing they read. If the script does
   more than one thing, add short `//` comments per step.
 - **Prefer small focused calls over one large batch.** Each call surfaces its one-line
-  description in the approval UI, so a small snippet reviews faster than a 100-line
-  omnibus. Approval frequency is under the user's control
-  (`implant.requireConfirmation` workspace setting; per-session Trust button in the
-  approval webview) — don't compress five concerns into one script just to reduce
+  description in chat, so a small snippet reviews faster than a 100-line omnibus.
+  Approval frequency is under the user's control (`implant.requireConfirmation`);
+  `@implant` offers a Run follow-up and native tool calls use VS Code confirmation.
+  Don't compress five concerns into one script just to reduce
   prompts, that's optimising for the wrong thing.
 - **Never write sync busy loops** — no `while (true) {}`, no deep sync recursion, no
   big synchronous computation. The extension host is single-threaded; sync work freezes
@@ -173,18 +158,13 @@ something other than `undefined`. On a cold workspace this can take tens of seco
 no-op:
 
 ```js
-if (!(await activateLanguage("python", 60_000))) {
+if (!(await activateLanguage("python"))) {
   return { error: "no Python language provider became ready in time" };
 }
-// providers are up — semantic queries will now return real answers
 ```
 
-**Language services — manual staging** (when you need finer control, e.g. warming for
-a specific document or extension). Warm up in three stages:
-
-1. **Open the document** to make the file's content available and trigger the
-   `onLanguage:<id>` activation event. `openTextDocument` does not wait for activation
-   or indexing — it resolves as soon as the `TextDocument` object exists.
+1. **Open a document.** Opening can trigger language extensions. For explicit control,
+   open the target document first:
 
    ```js
    const uri = vscode.Uri.file("/abs/path/to/file");
@@ -194,7 +174,7 @@ a specific document or extension). Warm up in three stages:
 2. **Wait for the extension to activate.** If you know which extension owns the
    language, await its `activate()` — this *does* block until activation completes:
 
-   ```js
+    ```js
    const ext = vscode.extensions.getExtension("vscode.typescript-language-features");
    if (ext && !ext.isActive) await ext.activate();
    ```
@@ -295,7 +275,7 @@ headings, bullet lists, code fences, and clickable file:line links
 (`[src/foo.ts:42](vscode://file//abs/path/src/foo.ts?42)`).
 
 **Return plain JSON** (object / array / number / string) only when another program will
-parse the result. The MCP envelope preserves the shape.
+parse the result.
 
 **Return a Mermaid fenced block** (`` ```mermaid ... ``` ``) for dependency graphs,
 call graphs, class hierarchies, flowcharts, sequence diagrams, state machines, git-style
@@ -346,7 +326,7 @@ examples nor `vscode-docs-commands` cover. Prefer probing (`return typeof x` /
 ### `examples/` — runnable JS snippets
 
 Every file under `examples/` is a **valid, runnable JS snippet** you can hand
-directly to `run_vscode_script` (or paste into an approval prompt after editing
+directly to the language-model tool (or adapt for an `@implant` request after editing
 the handful of `const` placeholders at the top). Each starts with a one-line
 comment stating what it does — that's the same summary the user sees in the
 approval prompt. Files are **named for the action they perform**, not the

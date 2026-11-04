@@ -1,12 +1,10 @@
 # Implant
 
-Implant lets AI coding assistants read and edit your code with the same intelligence
-your editor already has — every language server, every extension command, plus
-ast-grep for cross-language structural search and rewrites.
+Implant brings your editor's language services, extension commands, and ast-grep
+structural search into Copilot Chat and VS Code's agent tools.
 
-Under the hood, agents send short JavaScript snippets that run inside the VS Code
-extension host with the full `vscode.*` API in scope. Nothing runs without the user
-approving the exact snippet.
+Implant runs JavaScript in the VS Code extension host with the full `vscode.*` API
+in scope. Review and approve the code in chat before it runs.
 
 **Explore the code with the tools the editor already has:** Find References,
 Go-to-Definition, hover types, workspace diagnostics, git blame, symbol outlines,
@@ -26,17 +24,9 @@ without the false hits regex gives you on comments and string literals.
 
 ## Quick start
 
-1. Install the extension.
-2. Open your project. Implant will offer to install itself into the workspace —
-   this drops portable rule files that teach agents when to reach for Implant.
-3. Your agent picks up the tool automatically — MCP-native clients (Copilot Chat
-   and others on VS Code ≥ 1.101) discover it via the registry, and CLI agents
-   pick it up from the workspace instructions installed in step 2.
-4. When an agent invokes the tool, a webview opens beside the editor showing the
-   script with syntax highlighting. Click **Run**, **Run + trust session**, or
-   **Deny**.
-
-You can also ask Implant directly in Copilot Chat via **`@implant`** — see below.
+Install the extension, then invoke **`@implant`** in Copilot Chat or use the
+**Implant** tool in a VS Code agent session. Implant shows the code for
+approval before it runs.
 
 ## `@implant` in Copilot Chat
 
@@ -56,21 +46,13 @@ Examples of things that aren't one-click in the UI:
 
 Requires GitHub Copilot for the language model. Read-only queries and refactor
 dry-runs are the sweet spot; anything that modifies files still opens the
-approval webview so you can eyeball the exact snippet before it runs.
+in-chat approval so you can review the exact snippet before it runs.
 
 ## Safety notes
 
 - Snippets run in the VS Code extension host with the same privileges as the
   extension itself. There is no sandbox — that is the entire point.
-- The approval webview exists so you can eyeball each snippet before it runs.
-  Turn confirmation off only when the agent is already in a tight review loop.
-- The HTTP server only binds to `127.0.0.1` and requires a per-session bearer
-  token — the token lives in `.vscode/implant/session.yml` (mode `0600`, gitignored,
-  regenerated on every activation). Requests without a valid token get `401` and
-  raise a warning notification so you notice anything poking at the port.
-- Even with the token gate, don't run this on a shared machine: any process
-  running as your user can read the session file.
-- The `implant.requireConfirmation` workspace setting toggles the approval
-  webview. Leaving it on is the default for a reason; the per-session "Trust"
-  button on the approval webview is the escape hatch when you're actively
-  supervising a run.
+- The `implant.requireConfirmation` setting controls approval. The `@implant`
+  participant requests approval with a **Run this snippet** chat follow-up;
+  native tool calls use VS Code's inline confirmation prompt. Disabling
+  confirmation permits model-provided code to execute without an additional prompt.

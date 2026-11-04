@@ -7,17 +7,8 @@ want to use Implant, see [README.md](./README.md).
 
 ```
 src/
-  extension.ts          activation, palette commands, install-into-workspace,
-                        install-prompt for new folders, per-workspace session
-                        file (port + secret), unauthorized-request notifications,
-                        run pipeline (approval + execute + slow-script watch),
-                        terminate_scripts abort registry.
-  mcp-http-server.ts    minimal streamable-HTTP MCP server: initialize / tools/list /
-                        tools/call. Exposes run_vscode_script and
-                        terminate_scripts. Owns the endpoint and the bearer-token
-                        check, delegates execution + abort to extension.ts.
-  approval.ts           webview panel that shows the incoming snippet and gathers
-                        Run / Trust / Deny.
+  extension.ts          chat and language-model tool registration, execution
+                        approval, cancellation, timeout, and slow-script watch.
   executor.ts           vm.Script sandbox with vscode/astGrep/activateLanguage/
                         console/require injected, AbortSignal cancellation,
                         optional hard timeout. Registers dynamic ast-grep
@@ -30,31 +21,15 @@ src/
                         Location, Selection) into plain JSON, with cycle/depth/
                         array/string caps.
   agent-instructions.ts loads the SKILL.md + references/ subtree from
-                        assets/skills/implant/ at module load and exposes them
-                        to chat-participant.ts and the install-into-workspace
-                        command.
+                        assets/skills/implant/ at module load for chat prompts.
   chat-participant.ts   @implant Copilot Chat participant. Feeds SKILL.md as the
-                        system prompt, gates load_implant_reference, and
-                        executes the returned snippet through the same executor
-                        the MCP tool uses.
-
-bin/
-  call.js               stdio↔HTTP MCP proxy. Copied into
-                        <workspace>/.vscode/implant/call.js by "Install into
-                        Workspace" and launched by CLI MCP clients via the
-                        workspace .mcp.json.
+                        system prompt, loads references on demand, and executes
+                        the returned snippet through the shared executor.
 
 assets/
-  approval.html         template for the approval webview.
-  highlight/            highlight.js common bundle + a thin CSS that maps
-                        .hljs-* classes to VS Code CSS variables.
-  skills/implant/       agent-facing skill payload. SKILL.md is the primer
-                        loaded by every surface (MCP tool description, chat
-                        system prompt, on-disk skill copy); references/ holds
-                        runnable snippets (examples/*.js) and topical prose
-                        (topics/*.md, plus the bundled vscode/ast-grep type
-                        references) served on demand via
-                        load_implant_reference.
+  skills/implant/       prompt and reference payload for @implant; references/
+                        holds runnable snippets and topical API guidance loaded
+                        on demand via load_implant_reference.
   icon.png              extension icon.
 
 scripts/
@@ -62,14 +37,6 @@ scripts/
                         @ast-grep/napi platform binary. `npm run package`.
   refresh-types.mjs     regenerates the vendored vscode/ast-grep type
                         references shipped under assets/skills/implant/references.
-
-test/
-  run-examples.ts       end-to-end runner: copies test/fixtures/test-projects/*
-                        into a temp dir, launches VS Code with an isolated
-                        --user-data-dir, executes each examples/*.js against
-                        it, and exact-matches the return value against
-                        test/expected/<name>.{md,json}. Missing expected file
-                        → skipped.
 
 docs/
   images/
@@ -84,7 +51,7 @@ LICENSE                 MIT.
 ```bash
 npm install
 npm run compile           # tsc -> out/
-npm test                  # runs test/run-examples.ts against a fixture workspace
+npm test                  # compile smoke check
 # F5 in VS Code to launch an Extension Development Host
 ```
 
@@ -124,46 +91,29 @@ Platforms bundled: `darwin-arm64`, `darwin-x64`, `linux-{arm64,x64}-{gnu,musl}`,
 
 ## How the pieces fit together
 
-**Agent → HTTP server → auth check → runScript → approval → executor → serialize → response.**
+**Agent request → VS Code language-model tool or `@implant` participant → approval → executor → result.**
 
-1. `mcp-http-server.ts` accepts `POST /mcp` with a JSON-RPC `tools/call` body.
-   - Every request must carry `Authorization: Bearer <secret>` matching the
-     current session token. Failures return `401` and fire an
-     `onUnauthorized` callback that `extension.ts` throttles into a warning
-     notification (so agents scanning ports don't spam you).
-   - On success the server hands the script string to a `runScript` callback
-     provided by `extension.ts`. The server itself owns nothing beyond the
-     wire format and the auth check.
-2. `extension.ts::runScript`:
-   - `confirmExecution` opens the approval webview via `approval.ts` and awaits
-     Run / Trust / Deny.
-   - On approval, `executor.ts::execute` compiles the snippet with `vm.Script`,
-     wraps it in an async IIFE, injects `vscode` / `console` / `require` etc.,
-     and races the returned promise against an `AbortSignal` plus optional
-     hard timeout (disabled by default).
-   - `serialize.ts` normalizes the return value into JSON-safe objects.
-   - `watchForSlowScript` starts a 10-second timer; on fire it opens a
-     `withProgress` notification with a Cancel button that flips the abort
-     controller. Silent if the script settles first.
-3. The server wraps the result in `{ isError, content: [{ type: 'text', text }] }`
-   and returns it to the agent.
+1. `chat-participant.ts` handles `@implant` requests, asks the selected model for
+  a JavaScript snippet, and loads skill references on demand. It executes the
+  snippet through `runScript` after the user clicks the in-chat Run follow-up.
+2. `extension.ts` registers `implant_run_vscode_script` with
+  `vscode.lm.registerTool`. Its `prepareInvocation` displays VS Code's native
+  confirmation with the requested code. `invoke` calls the same `runScript`
+  pipeline, forwarding the language-model tool cancellation token and optional
+  timeout.
+3. `runScript` invokes `executor.ts::execute`, which compiles the snippet with
+  `vm.Script`, injects `vscode` / `console` / `require` and other globals, and
+  applies cancellation and the configured hard timeout. `serialize.ts`
+  normalizes the returned value. Slow scripts get a cancellable progress
+  notification after ten seconds.
 
-For CLI MCP clients (Claude Code, Aider, etc.), the pipeline picks up one more
-hop at the front: they launch `bin/call.js` as a stdio subprocess (from the
-workspace `.mcp.json`), and it reads `.vscode/implant/session.yml` to attach
-the bearer token before forwarding the JSON-RPC message over HTTP.
+## Agent prompt and references
 
-## Agent-facing skill
-
-The agent-facing payload lives under `assets/skills/implant/`. `SKILL.md` is the
-primer — the same body is served as the MCP tool description, the on-disk skill
-file written by "Install into Workspace", and the `@implant` chat participant's
-system prompt. `references/` holds runnable JS snippets under `examples/` and
-prose under `topics/` (plus the bundled vscode/ast-grep type declarations),
-served on demand via the `load_implant_reference` tool. Edit any of these files
-and every surface picks up the change on next activation — no code change, but a
-rebuild + reinstall is still needed to ship the updated `.md`/`.js` inside the
-.vsix. See the memory note "Ship VSIX after coding task" for the packaging step.
+The prompt and reference payload live under `assets/skills/implant/`. `SKILL.md`
+is loaded as the `@implant` system prompt; `references/` contains runnable
+examples, topical guidance, and bundled API declarations loaded on demand via
+`load_implant_reference`. Rebuild the extension to ship updated assets in the
+VSIX.
 
 ## Things worth knowing before changing behavior
 
@@ -181,17 +131,8 @@ rebuild + reinstall is still needed to ship the updated `.md`/`.js` inside the
   snippet like `while (true) {}` blocks the event loop forever. The 10-second
   slow-script notification can't fire either (event loop is blocked). Users who
   care about a hard cap set `implant.timeoutMs` to a positive number; V8's
-  watchdog thread will kill the script after that many ms. The primary defense
-  is the user-visible approval webview — snippets are supposed to be reviewed
-  before they run.
-- **`showTextDocument` on `.js` files with the TS language server active** can
-  put the language server in a wedged state that blocks all subsequent
-  `executeXxxProvider` calls on unrelated files. This is why the approval UI
-  is a webview and not a text-document preview.
-- **The per-session bearer token is regenerated on every activation.** CLI
-  agents that cache config across VS Code reloads must re-read
-  `session.yml`; the shipped `bin/call.js` does this on any `401` and retries
-  once.
+  watchdog thread will kill the script after that many ms. Review code in the
+  chat confirmation before running it.
 
 ## Filing changes
 
