@@ -116,7 +116,7 @@ covered by our per-command files under `examples/`.
 - **Prefer small focused calls over one large batch.** Each call surfaces its one-line
   description in chat, so a small snippet reviews faster than a 100-line omnibus.
   Approval frequency is under the user's control (`implant.requireConfirmation`);
-  `@implant` offers a Run follow-up and native tool calls use VS Code confirmation.
+  `@implant` and native tool calls both use VS Code's inline confirmation actions.
   Don't compress five concerns into one script just to reduce
   prompts, that's optimising for the wrong thing.
 - **Never write sync busy loops** — no `while (true) {}`, no deep sync recursion, no

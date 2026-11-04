@@ -99,22 +99,11 @@ const LM_TOOLS: vscode.LanguageModelChatTool[] = [{
 // Cap on tool-call rounds per user turn. Typical flow needs 0–1 rounds; more usually
 // means the model is looping.
 const MAX_TOOL_ROUNDS = 4;
-
-type RunFn = (
-	code: string,
-	options?: { signal?: AbortSignal },
-) => Promise<ExecResult>;
-
-interface PendingMeta {
-	pendingCode: string;
-	originalPrompt: string;
-	retryCount: number;
-}
+const RUN_SCRIPT_TOOL = 'implant_run_vscode_script';
 
 export function registerChatParticipant(
 	context: vscode.ExtensionContext,
 	output: vscode.OutputChannel,
-	run: RunFn,
 ) {
 	const chat = (vscode as any).chat;
 	const lm = (vscode as any).lm;
@@ -131,23 +120,6 @@ export function registerChatParticipant(
 			stream: vscode.ChatResponseStream,
 			token: vscode.CancellationToken,
 		): Promise<vscode.ChatResult | void> => {
-			// Fast-path: user clicked the "Run" followup (or typed just "run") on a turn that
-			// left a pending snippet.
-			if (request.prompt.trim().toLowerCase() === 'run') {
-				const pending = findPendingMeta(chatCtx.history);
-				if (!pending) {
-					stream.markdown('_No pending snippet to run. Ask me something first._');
-					return;
-				}
-				const result = await runAndRender(pending.pendingCode, stream, token, run);
-				if (!result || result.ok || token.isCancellationRequested) return;
-				if (pending.retryCount >= 1) {
-					stream.markdown('\n\n_Retry limit reached — refine your request or ask a new question._');
-					return;
-				}
-				return regenerateOnFailure(pending, result, request, stream, token, lm, run);
-			}
-
 			// Normal path: generate a snippet from the user's prompt, running the tool-call
 			// loop so the model can pull references on demand.
 			const model = await pickModel(request, lm);
@@ -164,18 +136,12 @@ export function registerChatParticipant(
 				stream.markdown('_Empty response from the language model._');
 				return;
 			}
-			stream.markdown('```js\n' + code + '\n```');
-			return presentSnippet(code, request.prompt, /* retryCount */ 0, stream, token, run);
+			stream.markdown('_Review and approve the generated script in the chat prompt below._');
+			const result = await runAndRender(code, request, stream, token, lm);
+			if (!result || result.ok || token.isCancellationRequested) return;
+			return regenerateOnFailure(code, request.prompt, result, request, stream, token, lm);
 		},
 	);
-
-	participant.followupProvider = {
-		provideFollowups(result: vscode.ChatResult): vscode.ChatFollowup[] {
-			const meta = result?.metadata as PendingMeta | undefined;
-			if (!meta?.pendingCode) return [];
-			return [{ label: '▶ Run this snippet', prompt: 'run' }];
-		},
-	};
 
 	participant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'assets', 'icon.png');
 	context.subscriptions.push(participant);
@@ -298,43 +264,15 @@ function handleToolCall(
 	return ref;
 }
 
-async function presentSnippet(
-	code: string,
-	originalPrompt: string,
-	retryCount: number,
-	stream: vscode.ChatResponseStream,
-	token: vscode.CancellationToken,
-	run: RunFn,
-): Promise<vscode.ChatResult | void> {
-	const requireConfirmation = vscode.workspace.getConfiguration('implant').get<boolean>('requireConfirmation', true);
-	if (!requireConfirmation) {
-		stream.markdown('\n\n---\n\n');
-		const result = await runAndRender(code, stream, token, run);
-		if (!result || result.ok || token.isCancellationRequested) return;
-		if (retryCount >= 1) return;
-		return regenerateOnFailure(
-			{ pendingCode: code, originalPrompt, retryCount },
-			result,
-			{ prompt: originalPrompt, model: undefined } as any,
-			stream,
-			token,
-			(vscode as any).lm,
-			run,
-		);
-	}
-	stream.markdown('\n\n_Click **▶ Run this snippet** below to execute, or type another question._');
-	return { metadata: { pendingCode: code, originalPrompt, retryCount } satisfies PendingMeta };
-}
-
 async function regenerateOnFailure(
-	pending: PendingMeta,
+	originalCode: string,
+	originalPrompt: string,
 	failed: ExecResult,
 	request: vscode.ChatRequest,
 	stream: vscode.ChatResponseStream,
 	token: vscode.CancellationToken,
 	lm: any,
-	run: RunFn,
-): Promise<vscode.ChatResult | void> {
+): Promise<void> {
 	const model = await pickModel(request, lm);
 	if (!model) return;
 
@@ -344,8 +282,8 @@ async function regenerateOnFailure(
 		vscode.LanguageModelChatMessage.User(SYSTEM_PROMPT),
 		vscode.LanguageModelChatMessage.User(FEWSHOT_USER),
 		vscode.LanguageModelChatMessage.Assistant(FEWSHOT_ASSISTANT),
-		vscode.LanguageModelChatMessage.User(pending.originalPrompt),
-		vscode.LanguageModelChatMessage.Assistant(pending.pendingCode),
+		vscode.LanguageModelChatMessage.User(originalPrompt),
+		vscode.LanguageModelChatMessage.Assistant(originalCode),
 		vscode.LanguageModelChatMessage.User(
 			`That snippet failed with: ${err.name}: ${err.message}\n\n` +
 			`Try again with a different approach. Reply with raw JavaScript only, no fences. ` +
@@ -358,8 +296,11 @@ async function regenerateOnFailure(
 
 	const newCode = stripCodeFence(text);
 	if (!newCode) return;
-	stream.markdown('```js\n' + newCode + '\n```');
-	return presentSnippet(newCode, pending.originalPrompt, pending.retryCount + 1, stream, token, run);
+	stream.markdown('\n\n_Review the revised script in the chat prompt below._');
+	const retryResult = await runAndRender(newCode, request, stream, token, lm);
+	if (retryResult && !retryResult.ok && !token.isCancellationRequested) {
+		stream.markdown('\n\n_Retry failed. Refine the request and try again._');
+	}
 }
 
 /**
@@ -418,21 +359,35 @@ function buildMessages(request: vscode.ChatRequest, chatCtx: vscode.ChatContext)
 
 async function runAndRender(
 	code: string,
+	request: vscode.ChatRequest,
 	stream: vscode.ChatResponseStream,
 	token: vscode.CancellationToken,
-	run: RunFn,
+	lm: any,
 ): Promise<ExecResult | undefined> {
-	const controller = new AbortController();
-	if (token.isCancellationRequested) controller.abort();
-	const cancelSub = token.onCancellationRequested(() => controller.abort());
+	let rawResult: string;
+	try {
+		const toolResult = await lm.invokeTool(RUN_SCRIPT_TOOL, {
+			toolInvocationToken: request.toolInvocationToken,
+			input: { code },
+		}, token);
+		rawResult = toolResult.content
+			.filter((part: unknown): part is vscode.LanguageModelTextPart => part instanceof vscode.LanguageModelTextPart)
+			.map((part: vscode.LanguageModelTextPart) => part.value)
+			.join('');
+	} catch (err) {
+		if (token.isCancellationRequested) return undefined;
+		stream.markdown(`\n\n_Language model tool invocation failed: ${(err as Error).message}_`);
+		return undefined;
+	}
+	if (token.isCancellationRequested) return undefined;
 
 	let result: ExecResult;
 	try {
-		result = await run(code, { signal: controller.signal });
-	} finally {
-		cancelSub.dispose();
+		result = JSON.parse(rawResult) as ExecResult;
+	} catch {
+		stream.markdown('\n\n_Implant returned an unreadable execution result._');
+		return undefined;
 	}
-	if (token.isCancellationRequested) return result;
 
 	if (result.logs?.length) {
 		stream.markdown('**Logs:**\n');
@@ -447,20 +402,6 @@ async function runAndRender(
 		stream.markdown(`**${e.name}:** ${e.message}`);
 	}
 	return result;
-}
-
-function findPendingMeta(
-	history: readonly (vscode.ChatRequestTurn | vscode.ChatResponseTurn)[],
-): PendingMeta | undefined {
-	for (let i = history.length - 1; i >= 0; i--) {
-		const turn = history[i];
-		if ('response' in turn) {
-			const meta = (turn as vscode.ChatResponseTurn).result?.metadata as PendingMeta | undefined;
-			if (meta?.pendingCode) return meta;
-			return undefined;
-		}
-	}
-	return undefined;
 }
 
 function renderValue(stream: vscode.ChatResponseStream, value: unknown) {

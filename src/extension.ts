@@ -16,7 +16,7 @@ export function activate(context: vscode.ExtensionContext) {
 	output.appendLine(`Implant activating on VS Code ${vscode.version}…`);
 
 	const cfg = () => vscode.workspace.getConfiguration('implant');
-	registerChatParticipant(context, output, (code, options) => runScript(code, cfg, options));
+	registerChatParticipant(context, output);
 	context.subscriptions.push(vscode.lm.registerTool<RunScriptInput>(RUN_SCRIPT_TOOL, {
 		prepareInvocation: ({ input }) => {
 			const needsConfirmation = cfg().get<boolean>('requireConfirmation', true);

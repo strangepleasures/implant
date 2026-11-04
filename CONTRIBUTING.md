@@ -95,7 +95,8 @@ Platforms bundled: `darwin-arm64`, `darwin-x64`, `linux-{arm64,x64}-{gnu,musl}`,
 
 1. `chat-participant.ts` handles `@implant` requests, asks the selected model for
   a JavaScript snippet, and loads skill references on demand. It executes the
-  snippet through `runScript` after the user clicks the in-chat Run follow-up.
+  snippet by invoking the registered language-model tool with the request's chat
+  token, so native confirmation and output stay in the same conversation.
 2. `extension.ts` registers `implant_run_vscode_script` with
   `vscode.lm.registerTool`. Its `prepareInvocation` displays VS Code's native
   confirmation with the requested code. `invoke` calls the same `runScript`

@@ -53,6 +53,6 @@ in-chat approval so you can review the exact snippet before it runs.
 - Snippets run in the VS Code extension host with the same privileges as the
   extension itself. There is no sandbox — that is the entire point.
 - The `implant.requireConfirmation` setting controls approval. The `@implant`
-  participant requests approval with a **Run this snippet** chat follow-up;
-  native tool calls use VS Code's inline confirmation prompt. Disabling
-  confirmation permits model-provided code to execute without an additional prompt.
+  participant and native tool both use VS Code's inline chat confirmation with
+  Continue/Cancel actions. Disabling confirmation permits model-provided code to
+  execute without an additional prompt.
