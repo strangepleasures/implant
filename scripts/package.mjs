@@ -13,9 +13,13 @@
 // to also `vsce publish` the resulting vsix — requires `VSCE_PAT` in the environment.
 
 import { execSync } from 'node:child_process';
-import { readFileSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
+const napiVersion = JSON.parse(readFileSync('package-lock.json', 'utf8'))
+	.packages['node_modules/@ast-grep/napi'].version;
 const shouldPublish = process.argv.includes('--publish');
 
 // VS Code dropped 32-bit Windows in 1.35 (2019), so `win32-ia32-msvc` is skipped.
@@ -34,6 +38,7 @@ const run = cmd => {
 	console.log(`\n$ ${cmd}`);
 	execSync(cmd, { stdio: 'inherit' });
 };
+const nativePackages = mkdtempSync(join(tmpdir(), 'implant-napi-'));
 
 // Ensure declared deps (including @ast-grep/lang-*) are present in node_modules.
 run('npm install');
@@ -45,8 +50,16 @@ run('npm run compile');
 for (const p of platforms) {
 	const flags = [`--os=${p.os}`, `--cpu=${p.cpu}`, p.libc && `--libc=${p.libc}`]
 		.filter(Boolean).join(' ');
-	run(`npm install --force --no-save ${flags} @ast-grep/napi-${p.name}`);
+	run(`npm install --force --no-save ${flags} @ast-grep/napi-${p.name}@${napiVersion}`);
+	cpSync(`node_modules/@ast-grep/napi-${p.name}`, join(nativePackages, `napi-${p.name}`), { recursive: true });
 }
+
+// npm prunes optional packages for other platforms on each install above. Restore the
+// staged copies together so the VSIX contains a usable binary for every target.
+for (const p of platforms) {
+	cpSync(join(nativePackages, `napi-${p.name}`), `node_modules/@ast-grep/napi-${p.name}`, { recursive: true });
+}
+rmSync(nativePackages, { recursive: true, force: true });
 
 run(`npx --yes @vscode/vsce package -o implant-${version}.vsix`);
 

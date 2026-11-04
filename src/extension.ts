@@ -43,6 +43,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 
 	const cfg = () => vscode.workspace.getConfiguration('implant');
+	registerChatParticipant(context, output, (code, options) => runScript(code, output, cfg, options));
 	const port = cfg().get<number>('port', 0);
 	const secret = crypto.randomBytes(32).toString('hex');
 
@@ -90,7 +91,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 
 	registerMcpProvider(context, started.url, output);
-	registerChatParticipant(context, output, (code, options) => runScript(code, output, cfg, options));
 }
 
 export function deactivate() {

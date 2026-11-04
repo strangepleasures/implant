@@ -92,8 +92,8 @@ export function registerChatParticipant(
 ) {
 	const chat = (vscode as any).chat;
 	const lm = (vscode as any).lm;
-	if (typeof chat?.createChatParticipant !== 'function' || typeof lm?.selectChatModels !== 'function') {
-		output.appendLine('Chat participant unavailable — vscode.chat / vscode.lm APIs not present.');
+	if (typeof chat?.createChatParticipant !== 'function') {
+		output.appendLine('Chat participant unavailable — vscode.chat API not present.');
 		return;
 	}
 
@@ -158,6 +158,7 @@ export function registerChatParticipant(
 
 async function pickModel(request: vscode.ChatRequest, lm: any): Promise<vscode.LanguageModelChat | undefined> {
 	if (request.model) return request.model;
+	if (typeof lm?.selectChatModels !== 'function') return undefined;
 	const models = await lm.selectChatModels({ vendor: 'copilot' });
 	return models?.[0];
 }

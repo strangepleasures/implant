@@ -18,7 +18,7 @@
   },
   "homepage": "https://github.com/strangepleasures/implant#readme",
   "engines": {
-    "vscode": "^1.95.0"
+    "vscode": "^1.142.0"
   },
   "categories": [
     "AI",
@@ -43,7 +43,8 @@
   "icon": "assets/icon.png",
   "main": "./out/extension.js",
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onChatParticipant:implant.assistant"
   ],
   "contributes": {
     "configuration": {
@@ -100,9 +101,9 @@
     "test": "tsc -p test && node test/out/run-examples.js"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
-    "@types/vscode": "^1.95.0",
-    "typescript": "^5.4.0"
+    "@types/node": "^24.19.2",
+    "@types/vscode": "^1.142.0",
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "@ast-grep/lang-c": "^0.0.6",
