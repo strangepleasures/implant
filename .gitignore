@@ -7,8 +7,6 @@ assets/references/vscode-api/
 assets/references/ast-grep-api/
 .vscode-test/
 .DS_Store
-.vscode/implant/call.js
-.vscode/implant/session.yml
 # Python caches (test fixture may collect these when opened for dev)
 __pycache__/
 *.pyc
