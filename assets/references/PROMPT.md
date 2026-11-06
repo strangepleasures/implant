@@ -28,8 +28,6 @@ Your code is executed as the body of an `async` function — write statements at
 
 - **`vscode`** — the same `vscode` module a VS Code extension imports at the top of its code. Namespaces: `window` (editors, tabs, notifications, quick-picks), `workspace` (workspace folders, open documents, file system, config, edits), `languages` (diagnostics, language-provider commands, feature registration), `commands` (`executeCommand`, `getCommands`), `extensions` (installed extension metadata + activation), `env` (clipboard, machine info, opening external URIs), `debug`, `tasks`, `authentication`, `notebooks`, `scm`, `tests`. Plus VS Code's data classes (`Uri`, `Range`, `Position`, `Location`, `Selection`, `WorkspaceEdit`, …) and enums (`SymbolKind`, `DiagnosticSeverity`, `CodeActionKind`, …). Every semantic query, every edit, every editor-state read goes through here. Use `list_api_declarations` and `get_api_declaration` for VS Code or ast-grep type declarations. For built-in VS Code commands, discover and load the relevant reference with the reference tools.
 - **`astGrep`** — the bundled `@ast-grep/napi` module (structural search + rewrite). Built-in languages: `Html`, `JavaScript`, `Tsx`, `Css`, `TypeScript`. Additional languages registered on activation: `Python`, `Go`, `Rust`, `Java`, `C`, `Cpp`. Use the reference-list tool to discover deeper structural-search guidance.
-- **`activateLanguage(langId, timeoutMs?)`** — activate every extension registered for `langId` (via `onLanguage:${langId}`) and wait until the document-symbol provider actually responds. Returns `true` when providers are up, `false` on timeout (default 30 000 ms). VS Code doesn't expose language servers as first-class handles, so this only kicks activation events and probes a provider — but that's enough to avoid the "first `executeXxxProvider` call returns `undefined`" trap on a freshly-opened window. In a warm workspace it's a fast no-op; skip it if you know the language services are already responsive.
-
 ### The rest
 
 Standard Node / Web globals, all in scope: `console`, `require`, `Buffer`, `setTimeout`, `clearTimeout`, `setImmediate`, `clearImmediate`, `URL`, `URLSearchParams`. All JavaScript language built-ins (`Array`, `Math`, `Object`, `JSON`, `Promise`, `Map`, `Set`, `Date`, `RegExp`, typed arrays, …) are automatically available. Anything else is a `require('node:…')` away.
@@ -67,13 +65,7 @@ For built-in VS Code command details not covered by the API declarations, discov
 
 VS Code and its extensions load lazily. If a snippet fails with "command not found" or hangs on an `executeXxxProvider` call, the responsible piece isn't loaded yet. Warm it up before reporting failure.
 
-**Language services — the easy path.** Use the `activateLanguage(langId, timeoutMs?)` global. It kicks the `onLanguage:<id>` activation event on every extension that registers for the language and polls `executeDocumentSymbolProvider` until it returns something other than `undefined`. On a cold workspace this can take tens of seconds (notably for `typescript-language-features` and `rust-analyzer`); on a warm one it's a no-op:
-
-```js
-if (!(await activateLanguage("python"))) {
-  return { error: "no Python language provider became ready in time" };
-}
-```
+**Language services — the easy path.** Before running a script, Implant opens a sample document for each file extension, activates matching language extensions, then uses sample document symbols to check that workspace-symbol indexes are responding. This is a bounded heuristic, not a universal readiness signal. Scripts can issue their semantic query directly without boilerplate retry loops; if a provider is still starting or the workspace has no matching symbol, the result may still be empty.
 
 1. **Open a document.** Opening can trigger language extensions. For explicit control, open the target document first:
 
@@ -91,24 +83,7 @@ if (!(await activateLanguage("python"))) {
    if (ext && !ext.isActive) await ext.activate();
    ```
 
-3. **Poll the semantic query.** After activation, the language server still needs time to build its symbol index. Retry until the provider stops returning `undefined`:
-
-   ```js
-   let symbols;
-   for (let attempt = 0; attempt < 40; attempt++) {
-     symbols = await vscode.commands.executeCommand(
-       "vscode.executeDocumentSymbolProvider",
-       doc.uri,
-     );
-     if (symbols !== undefined) break; // undefined = not warm; [] is a valid answer for empty files
-     await new Promise((r) => setTimeout(r, 500));
-   }
-   if (symbols === undefined)
-     return {
-       error: "no document-symbol provider registered for this language",
-     };
-   return symbols;
-   ```
+3. **Run the semantic query.** Warm-up checks common workspace-symbol readiness before the script starts. If you explicitly activate an extension for a language outside the workspace, its provider may need additional time.
 
 For a **batch** of semantic queries across many files, warm up once against the first file — subsequent calls hit a warm provider and return in milliseconds.
 

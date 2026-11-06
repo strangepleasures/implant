@@ -82,7 +82,7 @@
           "properties": {
             "code": {
               "type": "string",
-              "description": "JavaScript source executed as the body of an async function. The vscode, astGrep, and activateLanguage globals are available."
+              "description": "JavaScript source executed as the body of an async function. The vscode and astGrep globals are available."
             },
             "timeoutMs": {
               "type": "number",
@@ -101,7 +101,8 @@
     "watch": "tsc -w -p .",
     "package": "node scripts/package.mjs",
     "publish": "node scripts/package.mjs --publish",
-    "test": "npm run compile"
+    "test": "npm run compile && node --test test/*.test.cjs",
+    "test:examples": "npm run compile && node test/run-examples.cjs"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

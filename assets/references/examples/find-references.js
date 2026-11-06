@@ -2,19 +2,12 @@
 
 // SYMBOL_NAME is a name, not a position — the language server locates it via
 // executeWorkspaceSymbolProvider, so the script is robust across file/symbol
-// reorderings (unlike "first-symbol-in-first-file" auto-discovery). On a cold
-// provider, workspace-symbol search may return [] until indexing finishes —
-// this script polls up to ~20 s (see the "Warming up lazy providers" section
-// of PROMPT.md).
+// reorderings (unlike "first-symbol-in-first-file" auto-discovery). Implant
+// checks workspace-symbol indexes during warm-up before scripts run.
 
 const SYMBOL_NAME = "greet"; // adjust to a symbol that exists in your workspace
 
-let hits;
-for (let attempt = 0; attempt < 40; attempt++) {
-  hits = await vscode.commands.executeCommand("vscode.executeWorkspaceSymbolProvider", SYMBOL_NAME);
-  if (hits?.length) break;
-  await new Promise(r => setTimeout(r, 500));
-}
+const hits = await vscode.commands.executeCommand("vscode.executeWorkspaceSymbolProvider", SYMBOL_NAME);
 const target = hits?.find(h => h.name === SYMBOL_NAME) ?? hits?.[0];
 if (!target) return `_No symbol named \`${SYMBOL_NAME}\` in workspace — adjust the constant to a symbol that exists._`;
 

@@ -7,7 +7,7 @@
 //
 // Self-sufficient: discovers the target file by scanning the workspace
 // (skipping obvious build/dependency dirs) and taking the first file
-// alphabetically. `activateLanguage` warms the language provider first.
+// alphabetically. Language extensions are activated before scripts run, but this does not guarantee provider readiness.
 
 const CHAR = "\n";
 
@@ -20,7 +20,6 @@ if (!paths.length) return "_No files in workspace._";
 
 const uri = paths[0];
 const doc = await vscode.workspace.openTextDocument(uri);
-await activateLanguage(doc.languageId);
 
 // End of the last non-blank line — blank lines and comment-only lines don't
 // usually fire indent providers, and the end of the last statement gives the

@@ -12,11 +12,11 @@ src/
                         and its confirmation prompt.
   script-runner.ts      applies timeout config and cancellation to a run.
   slow-script-watch.ts  cancellable notification for long-running scripts.
-  executor.ts           vm.Script sandbox with vscode/astGrep/activateLanguage/
-                        console/require injected.
+  executor.ts           vm.Script sandbox with vscode/astGrep/console/require
+                        injected.
   dynamic-languages.ts  registers Python/Go/Rust/Java/C/C++ ast-grep languages.
   sandbox-console.ts    console object that captures logs for the result.
-  sandbox-helpers.ts    activateLanguage(langId, timeoutMs?) sandbox global.
+  sandbox-helpers.ts    language activation helper used during warm-up.
   script-timeout.ts     timeout/abort wrapper for async scripts.
   exec-result.ts        ExecResult type.
   log-entry.ts          LogEntry type.
@@ -64,9 +64,29 @@ LICENSE                 MIT.
 ```bash
 npm install
 npm run compile           # tsc -> out/
-npm test                  # compile smoke check
+npm test                  # compile and run unit tests
 # F5 in VS Code to launch an Extension Development Host
 ```
+
+### Example integration tests
+
+`npm run test:examples` runs each example with a matching file in
+`test/expected/` in its own VS Code extension host and a fresh copy of the
+Python fixture. It compares Markdown exactly (apart from surrounding whitespace)
+and JSON structurally, replacing the temporary fixture path with `{{PROJECT}}`.
+Examples without expected output are reported as skipped. Run a subset with
+`npm run test:examples -- get-hover`.
+
+The suite requires the `code` command, a graphical display, and VS Code's
+Python, Pylance, and Black Formatter extensions. The checked-in expectations
+were verified with VS Code 1.142.0, Python 2026.10.0, Pylance 2026.4.1,
+and Black Formatter 2026.6.0 (bundled Black 26.1.0).
+It uses the installed extension directory by default. Set `VSCODE_BIN` to
+another VS Code executable or `IMPLANT_TEST_EXTENSIONS_DIR` to an isolated extension directory. Provider
+versions and configuration affect results; test failures include the actual
+and expected values. The test never rewrites expected files. The dependency
+graph example emits edges in workspace search order, so its exact-output test
+may fail when the same edges are returned in a different order.
 
 ## Package a .vsix
 

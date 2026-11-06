@@ -9,24 +9,18 @@
 // 2=Information, 3=Hint), `range`, `source?`, `code?`. Diagnostics reflect
 // what VS Code currently thinks — a file the language server hasn't seen
 // yet has no diagnostics. We enumerate every workspace file (skipping
-// obvious build/dependency dirs), open each so its LS gets notified, then
-// activate every detected language so their LSPs get a chance to publish
-// before we read.
+// obvious build/dependency dirs) and open each so its LS gets notified.
 
 const SKIP_DIRS = "**/{node_modules,__pycache__,.venv,venv,.git,.vscode,.github,.idea,dist,build,out,target}/**";
 
 const paths = await vscode.workspace.findFiles("**/*", SKIP_DIRS);
-const langs = new Set();
 for (const uri of paths) {
   try {
-    const doc = await vscode.workspace.openTextDocument(uri);
-    langs.add(doc.languageId);
+    await vscode.workspace.openTextDocument(uri);
   } catch { /* not a text file — skip */ }
 }
-await Promise.all([...langs].map(id => activateLanguage(id).catch(() => false)));
 
-// activateLanguage waits for the doc-symbol provider — diagnostic publishing
-// is a separate async pipeline. Poll up to ~15 s for anything to arrive; if a
+// Diagnostic publishing is asynchronous. Poll up to ~15 s for anything to arrive; if a
 // workspace legitimately has none we still fall through and return [].
 for (let i = 0; i < 30; i++) {
   const any = vscode.languages.getDiagnostics().some(([, ds]) => ds.length);

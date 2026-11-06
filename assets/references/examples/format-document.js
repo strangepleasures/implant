@@ -6,8 +6,8 @@
 //
 // Self-sufficient: discovers the target file by scanning the workspace
 // (skipping obvious build/dependency dirs) and taking the first file
-// alphabetically. `activateLanguage` warms the language provider before the
-// format call so we don't race the LSP.
+// alphabetically. Language extensions are activated before scripts run, though
+// the formatter may still need time to become ready.
 
 const APPLY_CHANGES = true;
 
@@ -20,7 +20,6 @@ if (!paths.length) return "_No files in workspace._";
 
 const uri = paths[0];
 const doc = await vscode.workspace.openTextDocument(uri);
-await activateLanguage(doc.languageId);
 
 const rel = vscode.workspace.asRelativePath(uri);
 const edits = await vscode.commands.executeCommand(

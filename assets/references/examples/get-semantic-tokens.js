@@ -15,7 +15,7 @@
 //
 // Self-sufficient: discovers the target file by scanning the workspace
 // (skipping obvious build/dependency dirs) and taking the first file
-// alphabetically. `activateLanguage` warms the language provider first.
+// alphabetically. Language extensions are activated before scripts run, but this does not guarantee provider readiness.
 
 const SKIP_DIRS = "**/{node_modules,__pycache__,.venv,venv,.git,.vscode,.github,.idea,dist,build,out,target}/**";
 
@@ -26,8 +26,6 @@ if (!paths.length) return { error: "no files in workspace" };
 
 const uri = paths[0];
 const doc = await vscode.workspace.openTextDocument(uri);
-await activateLanguage(doc.languageId);
-
 const legend = await vscode.commands.executeCommand(
   "vscode.provideDocumentSemanticTokensLegend",
   uri,

@@ -7,16 +7,11 @@
 //
 // SYMBOL_NAME is a name, not a position — the language server locates it via
 // executeWorkspaceSymbolProvider, so the script is robust across file/symbol
-// reorderings. Polls up to ~20 s while providers warm up — bump the loop count or call `activateLanguage(langId)` first on a cold workspace.
+// reorderings. Implant checks workspace-symbol indexes during warm-up before scripts run.
 
 const SYMBOL_NAME = "entry"; // adjust to a symbol that exists in your workspace (and whose language has a range formatter — Black doesn't, autopep8 does)
 
-let hits;
-for (let attempt = 0; attempt < 40; attempt++) {
-  hits = await vscode.commands.executeCommand("vscode.executeWorkspaceSymbolProvider", SYMBOL_NAME);
-  if (hits?.length) break;
-  await new Promise(r => setTimeout(r, 500));
-}
+const hits = await vscode.commands.executeCommand("vscode.executeWorkspaceSymbolProvider", SYMBOL_NAME);
 const target = hits?.find(h => h.name === SYMBOL_NAME) ?? hits?.[0];
 if (!target) return `_No symbol named \`${SYMBOL_NAME}\` in workspace — adjust the constant to a symbol that exists._`;
 
@@ -26,8 +21,7 @@ await vscode.workspace.openTextDocument(uri);
 
 const rel = vscode.workspace.asRelativePath(uri);
 
-// Same cold-start polling as format-document.js — the range formatter comes
-// from an extension whose LSP may still be booting.
+// Wait for the formatter to become available.
 let edits;
 for (let attempt = 0; attempt < 40; attempt++) {
   edits = await vscode.commands.executeCommand(

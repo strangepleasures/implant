@@ -9,7 +9,7 @@
 //
 // Self-sufficient: discovers the target file by scanning the workspace
 // (skipping obvious build/dependency dirs) and taking the first file
-// alphabetically. `activateLanguage` warms the language provider first.
+// alphabetically. Language extensions are activated before scripts run, but this does not guarantee provider readiness.
 
 const RESOLVE_COUNT = 50;
 const SHOW = 100;
@@ -23,7 +23,6 @@ if (!paths.length) return "_No files in workspace._";
 
 const uri = paths[0];
 const doc = await vscode.workspace.openTextDocument(uri);
-await activateLanguage(doc.languageId);
 
 // End of the last non-blank line — a well-scoped position where language
 // servers can offer module-level completions. Completions at end of a

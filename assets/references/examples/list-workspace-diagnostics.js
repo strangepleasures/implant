@@ -2,25 +2,18 @@
 
 // Diagnostics reflect what VS Code currently thinks — a file the language server
 // hasn't seen yet reports none. So: enumerate every workspace file (skipping
-// obvious build/dependency dirs — the exclude glob is the "black list"),
-// open each so its language server gets notified, then activate every
-// language we find so their LSPs get a chance to publish before we read.
+// obvious build/dependency dirs — the exclude glob is the "black list") and
+// open each so its language server gets notified.
 
 const SKIP_DIRS = "**/{node_modules,__pycache__,.venv,venv,.git,.vscode,.github,.idea,dist,build,out,target}/**";
 const ICON = ["🛑", "⚠️", "ℹ️", "💡"];
 
 const paths = await vscode.workspace.findFiles("**/*", SKIP_DIRS);
-const langs = new Set();
 for (const uri of paths) {
   try {
-    const doc = await vscode.workspace.openTextDocument(uri);
-    langs.add(doc.languageId);
+    await vscode.workspace.openTextDocument(uri);
   } catch { /* not a text file — skip */ }
 }
-
-// Warm every language provider in parallel. Languages with no registered
-// provider just return false; harmless.
-await Promise.all([...langs].map(id => activateLanguage(id).catch(() => false)));
 
 const groups = vscode.languages.getDiagnostics().filter(([, ds]) => ds.length);
 if (!groups.length) return "**No diagnostics** in the workspace. ✨";

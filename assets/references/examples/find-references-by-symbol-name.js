@@ -13,12 +13,7 @@
 
 const SYMBOL_NAME = "greet"; // adjust to a symbol that exists in your workspace
 
-let wsHits;
-for (let attempt = 0; attempt < 40; attempt++) {
-  wsHits = await vscode.commands.executeCommand("vscode.executeWorkspaceSymbolProvider", SYMBOL_NAME);
-  if (wsHits?.length) break;
-  await new Promise(r => setTimeout(r, 500));
-}
+const wsHits = await vscode.commands.executeCommand("vscode.executeWorkspaceSymbolProvider", SYMBOL_NAME);
 if (!wsHits?.length) return `_No workspace symbols matched \`${SYMBOL_NAME}\`._`;
 
 const hit = wsHits.find(h => h.name === SYMBOL_NAME) ?? wsHits[0];

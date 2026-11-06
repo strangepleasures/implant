@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import * as astGrep from '@ast-grep/napi';
 import './dynamic-languages';
 import { serialize } from './serialize';
-import { activateLanguage } from './sandbox-helpers';
+import { warmUpLanguages } from './language-warmup';
 import { createSandboxConsole } from './sandbox-console';
 import { withTimeoutAndAbort } from './script-timeout';
 import type { ExecResult } from './exec-result';
@@ -19,7 +19,6 @@ export async function execute(code: string, timeoutMs: number, signal?: AbortSig
 	const context = vm.createContext({
 		vscode,
 		astGrep,
-		activateLanguage,
 		console: createSandboxConsole(logs),
 		require,
 		Buffer,
@@ -33,6 +32,7 @@ export async function execute(code: string, timeoutMs: number, signal?: AbortSig
 
 	const wrapped = `(async function __implant__() {\n${code}\n})()`;
 	const started = Date.now();
+	const warmup = await warmUpLanguages();
 
 	try {
 		const script = new vm.Script(wrapped, { filename: 'implant-script.js' });
@@ -50,5 +50,7 @@ export async function execute(code: string, timeoutMs: number, signal?: AbortSig
 			logs,
 			durationMs: Date.now() - started,
 		};
+	} finally {
+		warmup.release();
 	}
 }
