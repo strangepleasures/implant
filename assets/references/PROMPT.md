@@ -8,6 +8,14 @@ The chat response is passed to `new Function()` and executed as JavaScript. Outp
 
 **Reach for it when** the authoritative answer belongs to whatever language services the installed extensions contribute (real references, definitions, semantic renames — in _any_ language they cover, including several at once in a mixed-language repo), or to a third-party extension, or to VS Code itself (live diagnostics, tab state, palette-command output). **Don't** reach for it for reading files, running `git`, or filesystem walks — the shell is faster and doesn't prompt for approval.
 
+## Choose code-aware search first
+
+When inspecting or changing code, prefer the most specific code-aware capability available over textual pattern matching:
+
+- **Language services first for semantic questions** — references/usages, definitions, implementations, symbols, diagnostics, and rename. Use the relevant VS Code provider or command; warm the language service when needed and treat `undefined` as unavailable, not as an empty result.
+- **ast-grep for syntax and code shape** — finding or rewriting declarations and other AST patterns when the question is structural rather than semantic.
+- **Text search only for literal text** (such as comments, strings, or configuration values), or as an explicit fallback when no relevant language service or ast-grep parser is available. If falling back, make that limitation clear rather than presenting textual matches as semantic references.
+
 ## Invocation
 
 Invoke **`@implant`** in Copilot Chat for a highlighted script preview and inline Run/Cancel buttons. VS Code agents can use the native **Run VS Code Script** language-model tool, which displays its JavaScript input in the tool's confirmation UI. Both run JavaScript in the extension host.
